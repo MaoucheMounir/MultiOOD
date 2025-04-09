@@ -151,7 +151,7 @@ if __name__ == '__main__':
     batch_size = args.bsz
     print("Resuming from ", resume_file)
     checkpoint = torch.load(resume_file)
-    BestTestAcc = checkpoint['BestTestAcc']
+    BestTestAcc = checkpoint.get('BestTestAcc', -1)
 
     model.load_state_dict(checkpoint['model_state_dict'], strict=False)
     model_flow.load_state_dict(checkpoint['model_flow_state_dict'], strict=False)

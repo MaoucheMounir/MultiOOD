@@ -1,0 +1,11 @@
+EPIC-KITCHENS
+HAC
+HMDB51
+UCF101
+__pycache__/
+*.py[cod]
+*.pth
+*.tar
+*.gz
+*.rar
+*.pt

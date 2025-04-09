@@ -21,10 +21,10 @@ def convert(v, output_path):
     output_path + '%s.wav' % v[:-4]])
 
     
-valid_paths, _ = load_txt_file('/data/maouche/MultiOOD/HMDB-rgb-flow/splits/Kinetics_all.txt')
+valid_paths, _ = load_txt_file('HMDB-rgb-flow/splits/Kinetics_all.txt')
 
-folder_path = '/data/maouche/MultiOOD/Kinetics-Video'
-output_path = '/data/maouche/MultiOOD/Kinetics-Audio'
+folder_path = './'
+output_path = './'
 num = 0
 for root, dirs, files in os.walk(folder_path):
     for file in files:
