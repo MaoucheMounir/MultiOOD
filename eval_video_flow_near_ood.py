@@ -8,6 +8,11 @@ import torch.nn as nn
 from numpy.linalg import norm, pinv
 from scipy.special import logsumexp
 from sklearn.covariance import EmpiricalCovariance
+from utils_mounir import save_results_gen
+from time import perf_counter
+from datetime import timedelta
+
+start_time = perf_counter()
 
 class Encoder(nn.Module):
     def __init__(self, input_dim=2816, out_dim=8):
@@ -238,3 +243,12 @@ ood_metrics = compute_all_metrics(conf, label, pred)
 
 print("FPR@95: ", ood_metrics[0])
 print("AUROC: ", ood_metrics[1])
+
+end_time = perf_counter()
+execution_time = str(timedelta(seconds=end_time-start_time))
+print(f"Temps écoulé : {execution_time}")
+
+save_results_gen(backbone=args.appen, method=args.postprocessor, dataset=args.dataset, 
+             layer_proc=args.appen, fpr95=ood_metrics[0], 
+             auroc=ood_metrics[1], id_acc=ID_ACC, exec_time=execution_time,
+             filename="/data/maouche/MultiOOD/results_postprocessings_near_ood.csv")

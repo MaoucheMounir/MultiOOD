@@ -218,9 +218,10 @@ if __name__ == '__main__':
             label_name = 'saved_files/id_'+args.ood_dataset+'_near_ood_label_' + args.appen + split + '.npy'
             feature_name = 'saved_files/id_'+args.ood_dataset+'_near_ood_feature_' + args.appen + split + '.npy'
 
-        np.save(output_name, output_list)
-        np.save(pred_name, pred_list)
-        np.save(conf_name, conf_list)
-        np.save(label_name, label_list)
-        np.save(feature_name, feature_list)
+        prefix_path_hmdb = "/data/maouche/MultiOOD/HMDB-rgb-flow/"
+        np.save(os.path.join(prefix_path_hmdb,output_name), output_list)
+        np.save(os.path.join(prefix_path_hmdb,pred_name), pred_list)
+        np.save(os.path.join(prefix_path_hmdb,conf_name), conf_list)
+        np.save(os.path.join(prefix_path_hmdb,label_name), label_list)
+        np.save(os.path.join(prefix_path_hmdb,feature_name), feature_list)
 

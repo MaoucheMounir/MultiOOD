@@ -1,0 +1,7 @@
+test
+ID_ACC:  0.9990291262135922
+eval
+FPR@95:  0.12427184466019417
+AUROC:  0.97326457778143
+Temps écoulé : 0:00:01.226943
+backbone a2d_npmix

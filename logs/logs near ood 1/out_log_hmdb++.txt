@@ -1,0 +1,5 @@
+Resuming from  /data/maouche/MultiOOD/HMDB-rgb-flow/HMDB_near_ood_a2d_npmix.pt
+test
+eval
+train
+val

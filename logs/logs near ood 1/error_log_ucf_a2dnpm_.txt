@@ -1,0 +1,36 @@
+/data/maouche/MultiOOD/HMDB-rgb-flow/mmaction/models/builder.py:56: UserWarning: train_cfg and test_cfg is deprecated, please specify them in model. Details see this PR: https://github.com/open-mmlab/mmaction2/pull/629
+  warnings.warn(
+  0%|          | 0/65 [00:00<?, ?it/s]  2%|▏         | 1/65 [00:10<11:36, 10.88s/it]  3%|▎         | 2/65 [00:12<05:35,  5.32s/it]  5%|▍         | 3/65 [00:19<06:23,  6.19s/it]  6%|▌         | 4/65 [00:20<04:22,  4.31s/it]  8%|▊         | 5/65 [00:27<04:58,  4.98s/it]  9%|▉         | 6/65 [00:28<03:42,  3.78s/it] 11%|█         | 7/65 [00:36<04:57,  5.13s/it] 12%|█▏        | 8/65 [00:37<03:45,  3.95s/it] 14%|█▍        | 9/65 [00:42<03:47,  4.07s/it] 15%|█▌        | 10/65 [00:43<02:58,  3.25s/it] 17%|█▋        | 11/65 [00:48<03:20,  3.71s/it] 18%|█▊        | 12/65 [00:49<02:39,  3.02s/it] 20%|██        | 13/65 [00:54<02:56,  3.39s/it] 22%|██▏       | 14/65 [00:55<02:22,  2.80s/it] 23%|██▎       | 15/65 [01:05<04:11,  5.03s/it] 25%|██▍       | 16/65 [01:07<03:13,  3.95s/it] 26%|██▌       | 17/65 [01:15<04:14,  5.31s/it] 28%|██▊       | 18/65 [01:17<03:14,  4.14s/it] 29%|██▉       | 19/65 [01:21<03:21,  4.37s/it] 31%|███       | 20/65 [01:23<02:36,  3.49s/it] 32%|███▏      | 21/65 [01:29<03:03,  4.17s/it] 34%|███▍      | 22/65 [01:30<02:24,  3.35s/it] 35%|███▌      | 23/65 [01:39<03:36,  5.16s/it] 37%|███▋      | 24/65 [01:41<02:45,  4.04s/it] 38%|███▊      | 25/65 [01:48<03:24,  5.10s/it] 40%|████      | 26/65 [01:50<02:39,  4.08s/it] 42%|████▏     | 27/65 [01:57<03:02,  4.80s/it] 43%|████▎     | 28/65 [01:58<02:20,  3.79s/it] 45%|████▍     | 29/65 [02:02<02:15,  3.75s/it] 46%|████▌     | 30/65 [02:03<01:47,  3.06s/it] 48%|████▊     | 31/65 [02:07<01:51,  3.29s/it] 49%|████▉     | 32/65 [02:09<01:33,  2.82s/it] 51%|█████     | 33/65 [02:16<02:11,  4.11s/it] 52%|█████▏    | 34/65 [02:19<01:58,  3.83s/it] 54%|█████▍    | 35/65 [02:30<02:55,  5.85s/it] 55%|█████▌    | 36/65 [02:31<02:11,  4.52s/it] 57%|█████▋    | 37/65 [02:37<02:14,  4.81s/it] 58%|█████▊    | 38/65 [02:38<01:42,  3.80s/it] 60%|██████    | 39/65 [02:43<01:51,  4.28s/it] 62%|██████▏   | 40/65 [02:45<01:25,  3.43s/it] 63%|██████▎   | 41/65 [02:52<01:50,  4.60s/it] 65%|██████▍   | 42/65 [02:54<01:24,  3.65s/it] 66%|██████▌   | 43/65 [03:00<01:38,  4.48s/it] 68%|██████▊   | 44/65 [03:01<01:14,  3.57s/it] 69%|██████▉   | 45/65 [03:06<01:19,  3.97s/it] 71%|███████   | 46/65 [03:08<01:00,  3.21s/it] 71%|███████   | 46/65 [03:08<01:17,  4.09s/it]
+Traceback (most recent call last):
+  File "test_video_flow.py", line 210, in <module>
+    for clip, spectrogram, labels in tqdm(dataloaders[split]):
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/tqdm/std.py", line 1178, in __iter__
+    for obj in iterable:
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 530, in __next__
+    data = self._next_data()
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1224, in _next_data
+    return self._process_data(data)
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1250, in _process_data
+    data.reraise()
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/torch/_utils.py", line 457, in reraise
+    raise exception
+FileNotFoundError: Caught FileNotFoundError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/torch/utils/data/_utils/worker.py", line 287, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/torch/utils/data/_utils/fetch.py", line 49, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/torch/utils/data/_utils/fetch.py", line 49, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/data/maouche/MultiOOD/HMDB-rgb-flow/dataloader_video_flow.py", line 65, in __getitem__
+    vid = iio.imread(video_file, plugin="pyav")
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/imageio/v3.py", line 53, in imread
+    with imopen(uri, "r", **plugin_kwargs) as img_file:
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/imageio/core/imopen.py", line 113, in imopen
+    request = Request(uri, io_mode, format_hint=format_hint, extension=extension)
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/imageio/core/request.py", line 247, in __init__
+    self._parse_uri(uri)
+  File "/home/maouche/.conda/envs/multiood/lib/python3.8/site-packages/imageio/core/request.py", line 407, in _parse_uri
+    raise FileNotFoundError("No such file: '%s'" % fn)
+FileNotFoundError: No such file: '/data/maouche/MultiOOD/UCF101/video/v_HandstandPushups_g02_c03.avi'
+

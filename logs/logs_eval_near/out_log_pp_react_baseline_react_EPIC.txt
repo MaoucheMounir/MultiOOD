@@ -1,0 +1,7 @@
+test
+ID_ACC:  0.7126865671641791
+eval
+FPR@95:  0.8395522388059702
+AUROC:  0.6588605269109
+Temps écoulé : 0:00:00.036433
+backbone baseline
