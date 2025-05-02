@@ -27,14 +27,6 @@ def ash_b(x, percentile=90):
     return x
 
 def validate_one_step(model, clip, labels, flow, model_flow):
-    """ 
-    model: le backbone+classifieur vidéo
-    model_flow: le backbone+classifieur flow
-    clip: les vidéos
-    
-    Cette fonction retourne l'output de la concaténation par le MLP final
-    ainsi que les prédictions par modalité
-    """
     clip = clip['imgs'].cuda().squeeze(1)
     labels = labels.cuda()
     flow = flow['imgs'].cuda().squeeze(1)
@@ -43,11 +35,11 @@ def validate_one_step(model, clip, labels, flow, model_flow):
         x_slow, x_fast = model.module.backbone.get_feature(clip)  # 16,1024,8,14,14
         v_feat = (x_slow.detach(), x_fast.detach())  # slow 16,1280,16,14,14, fast 16,128,64,14,14
 
-        v_feat = model.module.backbone.get_predict(v_feat)
-        v_predict, v_emd = model.module.cls_head(v_feat)
+        v_feat = model.module.backbone.get_predict(v_feat) 
+        v_predict, v_emd = model.module.cls_head(v_feat) # apparemment, c'est celui-là qui contient les vecteurs d'embeddings finaux
 
         f_feat = model_flow.module.backbone.get_feature(flow)  # 16,1024,8,14,14
-        f_feat = model_flow.module.backbone.get_predict(f_feat)
+        f_feat = model_flow.module.backbone.get_predict(f_feat) # get_feature() donne des features bas niveau à la 3e couche du resnet, la 4e couche est appliquée par get_predict
         f_predict, f_emd = model_flow.module.cls_head(f_feat)
 
         if args.use_ash:
@@ -57,13 +49,16 @@ def validate_one_step(model, clip, labels, flow, model_flow):
             f_emd = f_emd.view(f_emd.size(0), -1)
 
         if args.use_react: 
-            # Effectue le thresholding react sur les dernières activations par modalité 
-            # avant la classification des embeddings concaténés
-            v_emd = v_emd.clip(max=args.v_thr)
-            v_emd = v_emd.view(v_emd.size(0), -1)
-            f_emd = f_emd.clip(max=args.f_thr)
-            f_emd = f_emd.view(f_emd.size(0), -1)
-
+            # ReAct est déjà appliqué sur chaque modalité, avec des seuils spécifique à la vidéo et au flow.
+            # Cependant, ils tronquent les embeddings finaux, les logits des classifieur de modalités (output_v et output_f en bas) sont inutilisés ensuite dans le code
+            if "video" in args.drop_modality:
+                v_emd = v_emd.clip(max=args.v_thr)
+                v_emd = v_emd.view(v_emd.size(0), -1)
+                
+            if "flow" in args.drop_modality:
+                f_emd = f_emd.clip(max=args.f_thr)
+                f_emd = f_emd.view(f_emd.size(0), -1)
+                
         predict = mlp_cls(v_emd, f_emd)
         feature = torch.cat((v_emd, f_emd), dim=1)
 
@@ -99,6 +94,8 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", type=str, default='HMDB') # HMDB UCF Kinetics
     parser.add_argument('--far_ood', action='store_true')
     parser.add_argument("--ood_dataset", type=str, default='UCF') # HMDB UCF Kinetics HAC
+    parser.add_argument("--drop_modality", type=str, default='') # A quelle modalité appliquer le react/dice etc.
+    
     args = parser.parse_args()
 
     np.random.seed(args.seed)
@@ -115,7 +112,6 @@ if __name__ == '__main__':
         else:
             feature_name = 'saved_files/id_'+args.dataset+'_feature_' + args.appen + 'val.npy'
         id_train_feature = np.load(feature_name)
-        # Calcule de la valeur du 90e percentile POUR CHAQUE MODALITE sur les données de train
         v_emd = id_train_feature[:, :2304]
         args.v_thr = np.percentile(v_emd.flatten(), percentile)
         f_emd = id_train_feature[:, 2304:]
@@ -214,13 +210,11 @@ if __name__ == '__main__':
                 splits = ['test', 'val']
             else:
                 splits = ['test', 'train', 'val']
-
+    
     for split in splits:
         print(split)
         pred_list, conf_list, label_list, output_list, feature_list = [], [], [], [], []
         for clip, spectrogram, labels in tqdm(dataloaders[split]):
-            # Avec validate_one_step, on aura l'output de la concaténation par le MLP final,
-            # Ainsi que les logits par modalité
             output, feature, output_v, output_f = validate_one_step(model, clip, labels, spectrogram, model_flow)
             score = torch.softmax(output, dim=1)
             conf, pred = torch.max(score, dim=1)
@@ -236,27 +230,30 @@ if __name__ == '__main__':
         label_list = torch.cat(label_list).numpy().astype(int)
         feature_list = torch.cat(feature_list).numpy()
 
+        args.appen += args.drop_modality+"_"
+        
+        save_files_to_path = "saved_files/"
         if args.far_ood:
-            output_name = 'saved_files/id_'+args.dataset+'_ood_'+ args.ood_dataset + '_output_' + args.appen + split + '.npy'
-            pred_name = 'saved_files/id_'+args.dataset+'_ood_'+ args.ood_dataset + '_pred_' + args.appen + split + '.npy'
-            conf_name = 'saved_files/id_'+args.dataset+'_ood_'+ args.ood_dataset + '_conf_' + args.appen + split + '.npy'
-            label_name = 'saved_files/id_'+args.dataset+'_ood_'+ args.ood_dataset + '_label_' + args.appen + split + '.npy'
-            feature_name = 'saved_files/id_'+args.dataset+'_ood_'+ args.ood_dataset + '_feature_' + args.appen + split + '.npy'
+            output_name = save_files_to_path+'id_'+args.dataset+'_ood_'+ args.ood_dataset + '_output_' + args.appen + split + '.npy'
+            pred_name = save_files_to_path+'id_'+args.dataset+'_ood_'+ args.ood_dataset + '_pred_' + args.appen + split + '.npy'
+            conf_name = save_files_to_path+'id_'+args.dataset+'_ood_'+ args.ood_dataset + '_conf_' + args.appen + split + '.npy'
+            label_name = save_files_to_path+'id_'+args.dataset+'_ood_'+ args.ood_dataset + '_label_' + args.appen + split + '.npy'
+            feature_name = save_files_to_path+'id_'+args.dataset+'_ood_'+ args.ood_dataset + '_feature_' + args.appen + split + '.npy'
         elif args.near_ood:
-            output_name = 'saved_files/id_'+args.dataset+'_near_ood_output_' + args.appen + split + '.npy'
-            pred_name = 'saved_files/id_'+args.dataset+'_near_ood_pred_' + args.appen + split + '.npy'
-            conf_name = 'saved_files/id_'+args.dataset+'_near_ood_conf_' + args.appen + split + '.npy'
-            label_name = 'saved_files/id_'+args.dataset+'_near_ood_label_' + args.appen + split + '.npy'
-            feature_name = 'saved_files/id_'+args.dataset+'_near_ood_feature_' + args.appen + split + '.npy'
+            output_name = save_files_to_path+'id_'+args.dataset+'_near_ood_output_' + args.appen + split + '.npy'
+            pred_name = save_files_to_path+'id_'+args.dataset+'_near_ood_pred_' + args.appen + split + '.npy'
+            conf_name = save_files_to_path+'id_'+args.dataset+'_near_ood_conf_' + args.appen + split + '.npy'
+            label_name = save_files_to_path+'id_'+args.dataset+'_near_ood_label_' + args.appen + split + '.npy'
+            feature_name = save_files_to_path+'id_'+args.dataset+'_near_ood_feature_' + args.appen + split + '.npy'
         else:
-            output_name = 'saved_files/id_'+args.dataset+'_output_' + args.appen + split + '.npy'
-            pred_name = 'saved_files/id_'+args.dataset+'_pred_' + args.appen + split + '.npy'
-            conf_name = 'saved_files/id_'+args.dataset+'_conf_' + args.appen + split + '.npy'
-            label_name = 'saved_files/id_'+args.dataset+'_label_' + args.appen + split + '.npy'
-            feature_name = 'saved_files/id_'+args.dataset+'_feature_' + args.appen + split + '.npy'
+            output_name = save_files_to_path+'id_'+args.dataset+'_output_' + args.appen + split + '.npy'
+            pred_name = save_files_to_path+'id_'+args.dataset+'_pred_' + args.appen + split + '.npy'
+            conf_name = save_files_to_path+'id_'+args.dataset+'_conf_' + args.appen + split + '.npy'
+            label_name = save_files_to_path+'id_'+args.dataset+'_label_' + args.appen + split + '.npy'
+            feature_name = save_files_to_path+'id_'+args.dataset+'_feature_' + args.appen + split + '.npy'
 
         np.save(output_name, output_list)
         np.save(pred_name, pred_list)
         np.save(conf_name, conf_list)
         np.save(label_name, label_list)
-        np.save(feature_name, feature_list) # Les features sauvegardées sont les features concaténées
+        np.save(feature_name, feature_list)

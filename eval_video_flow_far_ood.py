@@ -250,4 +250,4 @@ print(f"Temps écoulé : {execution_time}")
 save_results_gen(backbone="baseline", method=args.postprocessor,
                  dataset=args.ood_dataset, layer_proc=args.appen,
                  fpr95=ood_metrics[0], auroc=ood_metrics[1],
-                 id_acc=ID_ACC, exec_time=execution_time, filename="results_postprocessings_far_ood_baseline.csv")
+                 id_acc=ID_ACC, exec_time=execution_time, filename="results_moda_wise_ucf_react_video.csv", appen=args.appen)

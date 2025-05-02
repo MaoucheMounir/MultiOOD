@@ -1,0 +1,7 @@
+backbone,aggregation_method,dataset,layer_proc,fpr95,auroc,id_acc,exec_time
+baseline,max,UCF,react,0.5770,0.8314,0.8666,N/A
+baseline,max,EPIC,react,0.1995,0.9506,0.8666,N/A
+baseline,max,HAC,react,0.5268,0.8618,0.8666,N/A
+baseline,mean,UCF,react,0.4949,0.8525,0.8666,N/A
+baseline,mean,EPIC,react,0.1836,0.9567,0.8666,N/A
+baseline,mean,HAC,react,0.4036,0.8866,0.8666,N/A

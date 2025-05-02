@@ -10,7 +10,7 @@ def save_results(method, dataset, layer_proc, fpr95, auroc, id_acc, exec_time):
         f.write("{},{},{},{:.3f},{:.3f},{:.3f},{}\n".format(
             method, dataset, layer_proc, fpr95, auroc, id_acc, exec_time))
 
-def save_results_gen(backbone, method, dataset, layer_proc, fpr95, auroc, id_acc, exec_time, filename="results_postprocessings.csv"):
+def save_results_gen(backbone, method, dataset, layer_proc, fpr95, auroc, id_acc, exec_time, filename="results_postprocessings.csv", appen=""):
     if "ash" in layer_proc:
         layer_proc = "ash"
     elif "react" in layer_proc:
@@ -20,7 +20,13 @@ def save_results_gen(backbone, method, dataset, layer_proc, fpr95, auroc, id_acc
     
     backbone = "baseline" if "baseline" in backbone else "a2d_npmix"
     
+    configuration = [backbone, method, dataset, layer_proc]
+    if any(x in appen for x in ["video", "flow", "sound"]):
+        configuration.append(appen.replace(f"baseline_best_{layer_proc}_", "")[:-1])
+    
+    metrics = [fpr95, auroc, id_acc, exec_time]
+    
     with open(filename, "a") as f:
-        print("backbone", backbone)
-        f.write("{},{},{},{},{:.4f},{:.4f},{:.4f},{}\n".format(
-            backbone, method, dataset, layer_proc, fpr95, auroc, id_acc, exec_time))
+        f.write(",".join(configuration)+
+                ",{:.4f},{:.4f},{:.4f},{}\n".format(*metrics))
+
