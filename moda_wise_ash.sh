@@ -1,0 +1,2 @@
+bash moda_wise_far_ash.sh
+bash moda_wise_near_ash.sh

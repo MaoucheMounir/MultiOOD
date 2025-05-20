@@ -49,20 +49,29 @@ def validate_one_step(model, clip, labels, flow, model_flow, spectrogram, audio_
         audio_predict, audio_emd = audio_cls_model(audio_feat.detach())
        
         if args.use_ash:
-            v_emd = ash_b(v_emd.view(v_emd.size(0), -1, 1, 1))
-            v_emd = v_emd.view(v_emd.size(0), -1)
-            f_emd = ash_b(f_emd.view(f_emd.size(0), -1, 1, 1))
-            f_emd = f_emd.view(f_emd.size(0), -1)
-            audio_emd = ash_b(audio_emd.view(audio_emd.size(0), -1, 1, 1))
-            audio_emd = audio_emd.view(audio_emd.size(0), -1)
+            if "video" in args.drop_modality:
+                v_emd = ash_b(v_emd.view(v_emd.size(0), -1, 1, 1))
+                v_emd = v_emd.view(v_emd.size(0), -1)
+            if "flow" in args.drop_modality:
+                f_emd = ash_b(f_emd.view(f_emd.size(0), -1, 1, 1))
+                f_emd = f_emd.view(f_emd.size(0), -1)
+            if "audio" in args.drop_modality:
+                audio_emd = ash_b(audio_emd.view(audio_emd.size(0), -1, 1, 1))
+                audio_emd = audio_emd.view(audio_emd.size(0), -1)
 
-        if args.use_react:
-            v_emd = v_emd.clip(max=args.v_thr)
-            v_emd = v_emd.view(v_emd.size(0), -1)
-            f_emd = f_emd.clip(max=args.f_thr)
-            f_emd = f_emd.view(f_emd.size(0), -1)
-            audio_emd = audio_emd.clip(max=args.a_thr)
-            audio_emd = audio_emd.view(audio_emd.size(0), -1)
+
+        if args.use_react:    
+            if "video" in args.drop_modality:
+                    v_emd = v_emd.clip(max=args.v_thr)
+                    v_emd = v_emd.view(v_emd.size(0), -1)
+                    
+            if "flow" in args.drop_modality:
+                f_emd = f_emd.clip(max=args.f_thr)
+                f_emd = f_emd.view(f_emd.size(0), -1)
+            
+            if "audio" in args.drop_modality:
+                audio_emd = audio_emd.clip(max=args.a_thr)
+                audio_emd = audio_emd.view(audio_emd.size(0), -1)
 
         predict = mlp_cls(v_emd, audio_emd, f_emd)
 
@@ -102,6 +111,8 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", type=str, default='HMDB') # HMDB Kinetics
     parser.add_argument('--far_ood', action='store_true')
     parser.add_argument("--ood_dataset", type=str, default='EPIC') 
+    parser.add_argument("--drop_modality", type=str, default='') # A quelle modalité appliquer le react/dice etc.
+    
     args = parser.parse_args()
 
     np.random.seed(args.seed)
@@ -203,6 +214,7 @@ if __name__ == '__main__':
     dataloaders = {'train': train_dataloader, 'val': val_dataloader, 'test': test_dataloader, 'eval': eval_dataloader}
     splits = ['test', 'eval', 'train', 'val']
 
+    args.appen += args.drop_modality+"_"
     for split in splits:
         print(split)
         pred_list, conf_list, label_list, output_list, feature_list = [], [], [], [], []

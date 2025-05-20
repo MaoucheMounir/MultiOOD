@@ -43,10 +43,13 @@ def validate_one_step(model, clip, labels, flow, model_flow):
         f_predict, f_emd = model_flow.module.cls_head(f_feat)
 
         if args.use_ash:
-            v_emd = ash_b(v_emd.view(v_emd.size(0), -1, 1, 1))
-            v_emd = v_emd.view(v_emd.size(0), -1)
-            f_emd = ash_b(f_emd.view(f_emd.size(0), -1, 1, 1))
-            f_emd = f_emd.view(f_emd.size(0), -1)
+            if "video" in args.drop_modality:
+                v_emd = ash_b(v_emd.view(v_emd.size(0), -1, 1, 1))
+                v_emd = v_emd.view(v_emd.size(0), -1)
+            
+            if "flow" in args.drop_modality:    
+                f_emd = ash_b(f_emd.view(f_emd.size(0), -1, 1, 1))
+                f_emd = f_emd.view(f_emd.size(0), -1)
 
         if args.use_react: 
             # ReAct est déjà appliqué sur chaque modalité, avec des seuils spécifique à la vidéo et au flow.
@@ -211,6 +214,7 @@ if __name__ == '__main__':
             else:
                 splits = ['test', 'train', 'val']
     
+    args.appen += args.drop_modality+"_"
     for split in splits:
         print(split)
         pred_list, conf_list, label_list, output_list, feature_list = [], [], [], [], []
@@ -230,7 +234,7 @@ if __name__ == '__main__':
         label_list = torch.cat(label_list).numpy().astype(int)
         feature_list = torch.cat(feature_list).numpy()
 
-        args.appen += args.drop_modality+"_"
+        
         
         save_files_to_path = "saved_files/"
         if args.far_ood:

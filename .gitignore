@@ -9,5 +9,6 @@ __pycache__/
 *.gz
 *.rar
 *.pt
+*.logs
 obsolete/
 logs/
