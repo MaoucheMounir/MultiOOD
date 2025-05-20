@@ -1,0 +1,7 @@
+backbone,aggregation_method,dataset,layer_proc,fpr95,auroc,id_acc,exec_time
+baseline,max,HMDB,react,0.6318,0.8472,0.8976,N/A
+baseline,max,UCF,react,0.3854,0.9356,0.9922,N/A
+baseline,max,EPIC,react,0.8955,0.6342,0.7127,N/A
+baseline,mean,HMDB,react,0.4793,0.8677,0.8976,N/A
+baseline,mean,UCF,react,0.2971,0.9480,0.9922,N/A
+baseline,mean,EPIC,react,0.8638,0.6489,0.7127,N/A

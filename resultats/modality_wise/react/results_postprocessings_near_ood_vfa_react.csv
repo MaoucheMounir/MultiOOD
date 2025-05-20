@@ -1,0 +1,6 @@
+backbone,method,dataset,layer_proc,drop_modality,fpr95,auroc,id_acc,exec_time
+baseline,msp,EPIC,none,none,0.7332,0.6898,0.7313,0:00:00.403617
+baseline,msp,EPIC,react,none,0.7687,0.6596,0.7313,0:00:00.364742
+baseline,msp,EPIC,react,video,0.7313,0.6778,0.7295,0:00:00.359706
+baseline,msp,EPIC,react,flow,0.7369,0.6802,0.7332,0:00:00.360173
+baseline,msp,EPIC,react,audio,0.7295,0.6829,0.7257,0:00:00.386973
