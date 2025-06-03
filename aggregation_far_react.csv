@@ -1,0 +1,9 @@
+backbone,method,dataset,layer_proc,fpr95,auroc,id_acc,exec_time
+baseline,mean,UCF,react,0.4424,0.8638,0.8694,N/A
+baseline,mean,EPIC,react,0.1733,0.9598,0.8694,N/A
+baseline,max,UCF,react,0.4595,0.8616,0.8694,N/A
+baseline,max,EPIC,react,0.1699,0.9591,0.8694,N/A
+baseline,min,UCF,react,0.4413,0.8643,0.8694,N/A
+baseline,min,EPIC,react,0.1745,0.9595,0.8694,N/A
+baseline,max_perturbation,UCF,react,0.4778,0.8598,0.8694,N/A
+baseline,max_perturbation,EPIC,react,0.1756,0.9582,0.8694,N/A

@@ -251,4 +251,4 @@ print(f"Temps écoulé : {execution_time}")
 save_results_gen(backbone=args.appen, method=args.postprocessor, dataset=args.dataset, 
              layer_proc=args.appen, fpr95=ood_metrics[0], 
              auroc=ood_metrics[1], id_acc=ID_ACC, exec_time=execution_time,
-             filename="eval_moda_wise_ash_vfa__comb2.csv", appen=args.appen)
+             filename="eval_vfa_ash_moda_wise.csv", appen=args.appen)

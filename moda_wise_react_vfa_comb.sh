@@ -49,7 +49,5 @@ python eval_video_flow_near_ood.py --postprocessor msp --appen 'vfa_baseline_bes
 # echo "Evaluation for Epic vfa react video audio finished \n"
 ##########################################################
 
-# python eval_video_flow_near_ood_moda_wise.py --aggregation mean --appen vfa_baseline_best_react_
-# python eval_video_flow_near_ood_moda_wise.py --aggregation max --appen vfa_baseline_best_react_
-
+python eval_video_flow_near_ood_moda_wise.py --appen vfa_baseline_best_react_ --comb
 ##Ajouter le truc de comparer la perturbation pour choisir quelle modalité prendre

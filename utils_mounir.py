@@ -2,6 +2,7 @@ import pandas as pd
 from collections import defaultdict
 from config_mounir import modalities
 import numpy as np
+from torch import softmax
 
 def get_modality(appen):
     result = []
@@ -21,7 +22,7 @@ def create_file(prefix, appen):
     
     file_header = ["backbone", "method", "dataset", "layer_proc"] + \
                         add_drop_modality + ["fpr95", "auroc", "id_acc", "exec_time"]
-    backbone = "baseline" if "baseline" in appen else "a2d_npmix"
+    #backbone = "baseline" if "baseline" in appen else "a2d_npmix"
     
     if "ash" in appen:
         layer_proc = "ash"
@@ -95,6 +96,11 @@ def order_modalities(df):
     return df
 
 #######################################################
+def calc_perturbations(conf1, conf2, method="mse"):
+    if method == "mse":
+        return np.mean((conf1 - conf2) ** 2)
+    if method == "diff":
+        return np.mean(conf1-conf2)
 
 def max_perturbations(id_conf_sans, id_confs, ood_confs):
     """
@@ -105,7 +111,7 @@ def max_perturbations(id_conf_sans, id_confs, ood_confs):
     max_idx = -1
     
     for i, conf in enumerate(id_confs):
-        perturbation = np.linalg.norm(id_conf_sans-conf)
+        perturbation = calc_perturbations(id_conf_sans - conf)
         if perturbation > max_perturbations:
             max_perturbations = perturbation
             max_idx = i
@@ -114,5 +120,19 @@ def max_perturbations(id_conf_sans, id_confs, ood_confs):
     
     return ood_confs[max_idx]
 
+def ponderer_perturbations(id_conf_sans, id_confs, ood_confs, fct_ponderation):
+    """
+    id_conf_sans: scores de confiance obtenus sans react/ash
+    id_conf, ood_confs: scores de confiance obtenus avec react/ash
+    """
+    perturbations = []
     
-        
+    for i, conf in enumerate(id_confs):
+        perturbation = calc_perturbations(id_conf_sans - conf)
+        perturbations.append(perturbation)
+    
+    poids = fct_ponderation(perturbations) #softmax, min_max_scaling
+    confs_ponderees = [(a*b) for a,b in list(zip(ood_confs, poids))]
+    
+    return confs_ponderees
+    

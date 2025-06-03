@@ -1,0 +1,4 @@
+backbone,method,dataset,layer_proc,drop_modality,fpr95,auroc,id_acc,exec_time
+baseline,mean,EPIC,ash,0.6007,0.7570,0.6841,N/A
+baseline,max,EPIC,ash,0.8097,0.5501,0.7295,N/A
+baseline,min,EPIC,ash,0.5317,0.8255,0.6549,N/A

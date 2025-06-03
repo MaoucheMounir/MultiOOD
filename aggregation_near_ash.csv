@@ -1,0 +1,13 @@
+backbone,method,dataset,layer_proc,fpr95,auroc,id_acc,exec_time
+baseline,mean,HMDB,ash,0.4488,0.8693,0.8856,N/A
+baseline,mean,UCF,ash,0.2456,0.9505,0.9908,N/A
+baseline,mean,EPIC,ash,0.7481,0.6766,0.6950,N/A
+baseline,max,HMDB,ash,0.4815,0.8641,0.8856,N/A
+baseline,max,UCF,ash,0.2612,0.9473,0.9908,N/A
+baseline,max,EPIC,ash,0.7631,0.6728,0.6950,N/A
+baseline,min,HMDB,ash,0.4488,0.8656,0.8856,N/A
+baseline,min,UCF,ash,0.2573,0.9497,0.9908,N/A
+baseline,min,EPIC,ash,0.7444,0.6762,0.6950,N/A
+baseline,max_perturbation,HMDB,ash,0.4793,0.8633,0.8856,N/A
+baseline,max_perturbation,UCF,ash,0.2612,0.9490,0.9908,N/A
+baseline,max_perturbation,EPIC,ash,0.7668,0.6556,0.6950,N/A

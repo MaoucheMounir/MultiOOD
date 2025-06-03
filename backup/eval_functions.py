@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn import metrics
 import torch
 import torch.nn as nn
@@ -7,10 +8,16 @@ def train(model, train_dataloader, criterion, optim, nb_epochs):
     plot_loss = []
     plot_acc = []
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
+    model = model.to(device)  
+    
     for _ in range(nb_epochs):
         loss_values = []
         acc_values = []
         for i, (batch_X, batch_y) in enumerate(train_dataloader):
+            batch_X = batch_X.to(device)
+            batch_y = batch_y.to(device)
             outputs = model(batch_X) # Retourne l'output du module linéaire. Il faut faire passer par sigmoide
             
             #preds = np.where(nn.functional.sigmoid(outputs).detach().numpy()>0.5
@@ -31,13 +38,26 @@ def train(model, train_dataloader, criterion, optim, nb_epochs):
         plot_loss.append(np.mean(loss_values))
         plot_acc.append(np.mean(acc_values))
 
-    accuracy_train = np.mean(plot_acc)
+    accuracy_train = plot_acc[-1]
     print("accuracy train: ", accuracy_train)
     
+    return plot_loss, plot_acc, accuracy_train
+
+def visualize(plot_loss, plot_acc):
+    fig, ax = plt.subplots(1, 2, figsize=(15, 7))
     
+    ax[0].plot(np.arange(len(plot_loss)), plot_loss)
+    ax[0].set_xlabel("epoch")
+    ax[0].set_ylabel("loss")
+    ax[0].set_title("Evolution de la loss en fonction des epochs")
 
+    ax[1].plot(np.arange(len(plot_acc)), plot_acc)
+    ax[1].set_xlabel("epoch")
+    ax[1].set_ylabel("accuracy")
+    ax[1].set_title("Evolution de l'accuracy en fonction des epochs")
 
-
+    plt.tight_layout()
+    plt.show()
 
 def auc_and_fpr_recall(conf, label, tpr_th):
     # following convention in ML we treat OOD as positive

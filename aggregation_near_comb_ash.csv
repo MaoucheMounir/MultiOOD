@@ -1,0 +1,5 @@
+backbone,method,dataset,layer_proc,fpr95,auroc,id_acc,exec_time
+baseline,mean,EPIC,ash,0.7407,0.6735,0.6841,N/A
+baseline,max,EPIC,ash,0.7836,0.6739,0.6841,N/A
+baseline,min,EPIC,ash,0.7351,0.6741,0.6841,N/A
+baseline,max_perturbation,EPIC,ash,0.7929,0.6384,0.6841,N/A
