@@ -19,6 +19,7 @@ def create_file(prefix, appen):
     
     add_drop_modality = ["drop_modality"] if modality else []        
     add_comb = "comb_" if "comb" in appen else ""
+    add_vfa = "vfa_" if "vfa" in appen else ""
     
     file_header = ["backbone", "method", "dataset", "layer_proc"] + \
                         add_drop_modality + ["fpr95", "auroc", "id_acc", "exec_time"]
@@ -31,7 +32,7 @@ def create_file(prefix, appen):
     else:
         layer_proc = ""
     
-    filename = prefix + f'{add_comb}{layer_proc}.csv'
+    filename = prefix + f'{add_comb}{add_vfa}{layer_proc}.csv'
     
     with open(filename, "w") as f:
         f.write(",".join(file_header)+"\n")
@@ -111,7 +112,7 @@ def max_perturbations(id_conf_sans, id_confs, ood_confs):
     max_idx = -1
     
     for i, conf in enumerate(id_confs):
-        perturbation = calc_perturbations(id_conf_sans - conf)
+        perturbation = calc_perturbations(id_conf_sans, conf)
         if perturbation > max_perturbations:
             max_perturbations = perturbation
             max_idx = i
@@ -128,7 +129,7 @@ def ponderer_perturbations(id_conf_sans, id_confs, ood_confs, fct_ponderation):
     perturbations = []
     
     for i, conf in enumerate(id_confs):
-        perturbation = calc_perturbations(id_conf_sans - conf)
+        perturbation = calc_perturbations(id_conf_sans, conf)
         perturbations.append(perturbation)
     
     poids = fct_ponderation(perturbations) #softmax, min_max_scaling

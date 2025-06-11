@@ -54,11 +54,12 @@ datasets = {'far_ood': far_ood_datasets, 'near_ood':near_ood_datasets, "vfa": vf
 
 ###################################################
 
-modalities = ["video", "flow", "audio"]
+#modalities = ["video", "flow", "audio"]
 modalities_near = modalities_far = ["video", "flow"]
 ood_modes = ["near_ood", "far_ood"]
 backbone_types = ["baseline", "a2d_npmix"]
 
+modalities = {"near_ood": ["video", "flow"], "far_ood": ["video", "flow"], "vfa":["video", "flow", "audio"]}
 test_filename = "test_video_flow"
 eval_filename = "eval_video_flow"
 
@@ -78,7 +79,8 @@ class Framework():
         self.datasets = datasets[ood_mode]
         self.test_filename = "_".join(["test_video_flow", add_audio, moda_wise]).strip("_").replace("__", "_")
         self.eval_filename = "_".join(["eval_video_flow", add_ood]).strip("_")
-        self.modalities = [''] if not moda_wise else modalities if ood_mode == "vfa" else modalities[:-1]
+        #self.modalities = [''] if not moda_wise else modalities if ood_mode == "vfa" else modalities[:-1]
+        self.modalities = modalities[self.ood_mode]
         #self.results_filename = "eval_"+moda_wise+"_"+ood_mode #eval_moda_wise_ash_far_ood.csv
         self.saved_files_path = "/data/maouche/MultiOOD/HMDB-rgb-flow/saved_files/"
        
@@ -90,14 +92,14 @@ class Framework():
     def load_conf_moda_wise(self, template, *args):
         # layer_proc par modalité
         conf_une_modalite = []
-        for modality in modalities_near:
+        for modality in self.modalities:
             conf_une_modalite.append(self.load_conf(template.format(*args,modality)))
         conf_une_modalite = np.hstack(conf_une_modalite)
         return conf_une_modalite
 
 
 class NearOODFramework(Framework):
-    def __init__(self, ood_mode:str, moda_wise:str=""):
+    def __init__(self, ood_mode:str="near_ood", moda_wise:str=""):
         super().__init__(ood_mode, moda_wise)
         
         drop_modality = "" if not moda_wise else "--drop_modality {modality}"
@@ -125,12 +127,19 @@ class NearOODFramework(Framework):
         
 
     def get_confs(self, domain, layer_proc):
+        if self.ood_mode == "vfa":
+            return self.get_confs_vfa(domain, layer_proc)
+        else:
+            return self.get_confs_near_vf(domain, layer_proc)
+        
+    def get_confs_near_vf(self, domain, layer_proc):
         """
         Retourne les scores de confiance (max MSP)
         args:
         domain: str ("id", "ood")
         """
         assert domain in ["id", "ood"]
+        add_layer_proc = layer_proc+"_" if layer_proc else ""
         split = "test" if domain == "id" else "eval"
                 
         template_sans_layer_proc =  "id_{}_near_ood_conf_baseline_best_"+split+".npy"
@@ -146,19 +155,36 @@ class NearOODFramework(Framework):
             
             # layer_proc sur tout
             conf_layer_proc_tout = self.load_conf(template_layer_proc_tout.format(dataset))
-
-            # layer_proc par modalité
-            # conf_une_modalite = []
-            # for modality in modalities_near:
-            #     x = np.load(root_dir+template_par_modalite.format(dataset, modality))
-            #     x = x.reshape(x.shape[0], 1)
-            #     conf_une_modalite.append(x)
-            # conf_une_modalite = np.hstack(conf_une_modalite)
             
             conf_une_modalite = self.load_conf_moda_wise(template_par_modalite, dataset)
             dataset_id = np.hstack([conf_sans_layer_proc, conf_layer_proc_tout, conf_une_modalite]) #(N,5)
             datasets_id[dataset] = dataset_id
         return datasets_id
+    
+    def get_confs_vfa(self, domain, layer_proc):
+        """
+        Retourne les scores de confiance (max MSP)
+        args:
+        domain: str ("id", "ood")
+        """
+        assert domain in ["id", "ood"]
+        split = "test" if domain == "id" else "eval"
+                
+        template_sans_layer_proc =  "id_EPIC_near_ood_conf_vfa_baseline_best_"+split+".npy"
+        template_layer_proc_tout = "id_EPIC_near_ood_conf_vfa_baseline_best_"+layer_proc+"_"+split+".npy"
+        template_par_modalite = "id_EPIC_near_ood_conf_vfa_baseline_best_"+layer_proc+"_{}_"+split+".npy"
+
+        # Sans layer_proc
+        conf_sans_layer_proc = self.load_conf(template_sans_layer_proc)
+        
+        # layer_proc sur tout
+        conf_layer_proc_tout = self.load_conf(template_layer_proc_tout)
+        
+        # React par modalité
+        conf_une_modalite = self.load_conf_moda_wise(template_par_modalite)
+        dataset_id = np.hstack([conf_sans_layer_proc, conf_layer_proc_tout, conf_une_modalite]) #(N,5)
+        
+        return dataset_id
     
 
 class FarOODFramework(Framework):
@@ -210,7 +236,6 @@ class FarOODFramework(Framework):
         template_id_react_tout = "id_HMDB_conf_baseline_best_"+layer_proc+"_val.npy"
         template_id_par_modalite = "id_HMDB_conf_baseline_best_"+layer_proc+"_{}_val.npy"
 
-        #root_dir = self.saved_files_path
         # Sans react
         conf_sans_react = self.load_conf(template_id_sans_react)
         
@@ -220,12 +245,6 @@ class FarOODFramework(Framework):
         # React par modalité
         conf_une_modalite = self.load_conf_moda_wise(template_id_par_modalite)
         
-        # conf_une_modalite = []
-        # for modality in modalities_far:
-        #     x = np.load(root_dir+template_id_par_modalite.format(modality))
-        #     x = x.reshape(x.shape[0], 1)
-        #     conf_une_modalite.append(x)
-        # conf_une_modalite = np.hstack(conf_une_modalite)
         dataset_id = np.hstack([conf_sans_react, conf_react_tout, conf_une_modalite]) #(N,4)
         return dataset_id
 
