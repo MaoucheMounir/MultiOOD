@@ -2,7 +2,9 @@ import pandas as pd
 from collections import defaultdict
 from config_mounir import modalities
 import numpy as np
-from torch import softmax
+#from torch import softmax
+import torch
+from torch.utils.data import  TensorDataset, DataLoader
 
 def get_modality(appen):
     result = []
@@ -97,7 +99,36 @@ def order_modalities(df):
     return df
 
 #######################################################
-def calc_perturbations(conf1, conf2, method="mse"):
+
+def get_y(dataset_id, dataset_ood):
+    y_id = np.zeros(dataset_id.shape[0])
+    y_id = y_id.reshape(y_id.shape[0], 1)
+
+    y_ood = np.ones(dataset_ood.shape[0])
+    y_ood = y_ood.reshape(y_ood.shape[0], 1)
+
+    Y = np.vstack([y_id, y_ood])
+    return Y
+
+
+def get_dataloader(X, y, batch_size):
+    """
+    X et Y: data['X_train"] ou data['x_test] et data[y_train] y_test
+    """
+    X_tensor_train = torch.tensor(X, dtype=torch.float32)
+    y_tensor_train = torch.tensor(y, dtype=torch.float32)
+    train_dataset = TensorDataset(X_tensor_train, y_tensor_train)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    print(len(X_tensor_train), "elements", np.unique(y_tensor_train, return_counts=True))
+    return train_dataloader
+
+#######################################################
+def calc_perturbations(conf1:np.ndarray, conf2:np.ndarray, method="mse") -> np.ndarray:
+    """
+    args:
+    conf1, conf2 (np.ndarray, list)
+    """
+    
     if method == "mse":
         return np.mean((conf1 - conf2) ** 2)
     if method == "diff":
@@ -137,3 +168,15 @@ def ponderer_perturbations(id_conf_sans, id_confs, ood_confs, fct_ponderation):
     
     return confs_ponderees
     
+def ponderation_predictor(confs:np.ndarray, weights:np.ndarray) -> np.ndarray:
+    """
+    args:
+    confs (np.ndarray): (N, M), avec M nombre de modalités (2 si VF ou 3 si VFA)
+    weights (np.ndarray): (M,), poids de chaque modalité
+    
+    returns:
+    le score de confiance final et la prédiction éventuellement 
+    """
+    # le score de confiance final après pondération des modalités par leurs perturbations respectives (poids)
+    ponderated_conf = np.sum(confs*weights, axis=1).reshape(-1,1)
+    return ponderated_conf
