@@ -9,7 +9,7 @@ import torch.nn as nn
 from numpy.linalg import norm, pinv
 from scipy.special import logsumexp
 from sklearn.covariance import EmpiricalCovariance
-from utils_mounir import save_results_gen
+from mounirood.utils_mounir import save_results_gen
 
 
 class Encoder(nn.Module):

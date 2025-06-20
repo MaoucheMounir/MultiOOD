@@ -1,7 +1,7 @@
 import numpy as np
 from metrics import auc_and_fpr_recall
 import argparse
-from utils_mounir import save_results_gen, create_file, max_perturbations
+from mounirood.utils_mounir import save_results_gen, create_file, max_perturbations
 
 
 def acc(pred, label):

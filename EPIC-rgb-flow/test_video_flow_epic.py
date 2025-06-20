@@ -204,7 +204,7 @@ if __name__ == '__main__':
         conf_list = torch.cat(conf_list).numpy()
         label_list = torch.cat(label_list).numpy().astype(int)
         feature_list = torch.cat(feature_list).numpy()
-
+        
         if args.far_ood:
             output_name = 'saved_files/id_'+args.dataset+'_ood_'+ args.ood_dataset + '_output_' + args.appen + split + '.npy'
             pred_name = 'saved_files/id_'+args.dataset+'_ood_'+ args.ood_dataset + '_pred_' + args.appen + split + '.npy'

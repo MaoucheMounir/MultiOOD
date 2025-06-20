@@ -236,7 +236,8 @@ if __name__ == '__main__':
 
         
         
-        save_files_to_path = "saved_files/"
+        #save_files_to_path = "saved_files/"
+        save_files_to_path = "/data/maouche/MultiOOD/HMDB-rgb-flow/saved_files_norm"
         if args.far_ood:
             output_name = save_files_to_path+'id_'+args.dataset+'_ood_'+ args.ood_dataset + '_output_' + args.appen + split + '.npy'
             pred_name = save_files_to_path+'id_'+args.dataset+'_ood_'+ args.ood_dataset + '_pred_' + args.appen + split + '.npy'
