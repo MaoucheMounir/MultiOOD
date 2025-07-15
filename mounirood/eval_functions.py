@@ -7,19 +7,34 @@ from sklearn import metrics
 import torch
 from torch import sigmoid
 from IPython.display import display
- 
+  
 sys.path.append(os.path.abspath('..'))
+from metrics import acc
 from mounirood.modality_fusion import calc_perturbations
 
+def get_preds(outputs):
+    with torch.no_grad():
+        logits = sigmoid(outputs)
+    preds = (logits > 0.5).int()
+    return preds    
+    
+# def calc_acc(outputs, batch_y):
+#     if not isinstance(outputs, torch.Tensor):
+#         outputs = torch.tensor(outputs)
+#     if not isinstance(batch_y, torch.Tensor):
+#         batch_y = torch.as_tensor(batch_y)
+        
+#     logits = sigmoid(outputs) # AAAAHAHHAHHHHHHHH
+#     preds = (logits > 0.5).int() # C'est plus efficace avec pytorch pour calculer l'accuracy que plus haut
+#     acc = (preds == batch_y).float().mean().item()
+#     return acc
 
-def calc_acc(outputs, batch_y):
-    if not isinstance(outputs, torch.Tensor):
-        outputs = torch.tensor(outputs)
+def calc_acc(preds, batch_y):
+    if not isinstance(preds, torch.Tensor):
+        preds = torch.tensor(preds)
     if not isinstance(batch_y, torch.Tensor):
         batch_y = torch.as_tensor(batch_y)
         
-    logits = sigmoid(outputs)
-    preds = (logits > 0.5).int() # C'est plus efficace avec pytorch pour calculer l'accuracy que plus haut
     acc = (preds == batch_y).float().mean().item()
     return acc
 
@@ -47,7 +62,8 @@ def train(model, train_dataloader, criterion, optim, nb_epochs, scheduler=None):
             # acc = (preds == batch_y).float().mean().item()
 
             #acc = np.sum((batch_y.numpy() == preds)) / batch_y.shape[0]
-            acc = calc_acc(outputs, batch_y)
+            preds = get_preds(outputs)
+            acc = calc_acc(preds, batch_y)
             acc_values.append(acc)
             
             loss = criterion(outputs, batch_y)
@@ -89,7 +105,6 @@ def auc_and_fpr_recall(conf, label, tpr_th):
     #ood_indicator[label == -1] = 1
     ood_indicator = label
     
-    
     # in the postprocessor we assume ID samples will have larger
     # "conf" values than OOD samples
     # therefore here we need to negate the "conf" values
@@ -97,14 +112,14 @@ def auc_and_fpr_recall(conf, label, tpr_th):
     # Ici, j'ai inversé les signes des 3 confs suivants
     # Parce que dans le classifieur, comme la classe OOD est 1, plus le "score" / logit
     # d'un exemple est élevé, plus il sera classifié comme OOD. Il faut donc inverser le paradigme.
-    fpr_list, tpr_list, thresholds = metrics.roc_curve(ood_indicator, conf)
+    fpr_list, tpr_list, thresholds = metrics.roc_curve(ood_indicator, -conf)
     fpr = fpr_list[np.argmax(tpr_list >= tpr_th)]
 
     precision_in, recall_in, thresholds_in \
-        = metrics.precision_recall_curve(1 - ood_indicator, -conf)
+        = metrics.precision_recall_curve(1 - ood_indicator, conf)
 
     precision_out, recall_out, thresholds_out \
-        = metrics.precision_recall_curve(ood_indicator, conf)
+        = metrics.precision_recall_curve(ood_indicator, -conf)
 
     auroc = metrics.auc(fpr_list, tpr_list)
     aupr_in = metrics.auc(recall_in, precision_in)
@@ -184,12 +199,15 @@ def calc_correlations(framework, layer_proc, poids):
     if framework.ood_mode != "near_ood":
         conf_sans, *confs_avec = framework.get_confs("ood", layer_proc).transpose()
     else:
-        confs:dict = framework.get_confs("ood", layer_proc)
-        all_confs = []
-        for ds, conf_ds in confs.items():
-            all_confs.append(conf_ds)
-        all_confs = np.vstack(all_confs)
-        conf_sans, *confs_avec = all_confs.transpose()        
+        if framework.dataset_used:
+            conf_sans, *confs_avec = framework.get_confs("ood", layer_proc, framework.dataset_used).transpose()
+        else:
+            confs:dict = framework.get_confs("ood", layer_proc)
+            all_confs = []
+            for ds, conf_ds in confs.items():
+                all_confs.append(conf_ds)
+            all_confs = np.vstack(all_confs)
+            conf_sans, *confs_avec = all_confs.transpose()        
    
    
     diffs_ood = [np.round(calc_perturbations(conf_sans, conf, "diff"), 4) for conf in confs_avec]
@@ -204,19 +222,20 @@ def calc_correlations(framework, layer_proc, poids):
     
     return df, correlation_id, correlation_ood
 
-def performance_report(model, test_dataloader, framework, correlations=True):
+def performance_report(model, test_dataloader, framework=None, correlations=True):
     """
     correlations (bool): On ne calcule pas la correlation pour le modèle à 2 couches
     """
+    #assert bool(framework) == correlations
     outputs_test = calc_outputs_test(model, test_dataloader)
-    
-    accuracy_test = calc_acc(outputs_test["all_outputs_test"], outputs_test["all_labels_test"])
+    preds_test = (torch.tensor(outputs_test["all_outputs_test"]) > 0.5).int()
+    accuracy_test = calc_acc(preds_test, outputs_test["all_labels_test"])
     print("Accuracy test: ", np.round(accuracy_test, 4))
     
     print("Séparabilité:")
     separabilite(outputs_test)
     
-    auroc, _, _, fpr = auc_and_fpr_recall(np.array(outputs_test["all_outputs_test"]), np.array(outputs_test["all_labels_test"]), tpr_th=0.95)
+    auroc, _, _, fpr = auc_and_fpr_recall(-np.array(outputs_test["all_outputs_test"]), np.array(outputs_test["all_labels_test"]), tpr_th=0.95)
     print("AUC ROC: {}\nFPR@TPR95: {}\n".format(auroc.round(4), fpr.round(4)))
     
     if correlations:
@@ -229,3 +248,31 @@ def performance_report(model, test_dataloader, framework, correlations=True):
         df = correlation_id = correlation_ood = None
         
     return outputs_test, auroc, fpr, df, correlation_id, correlation_ood
+
+
+
+# def performance_report(model, test_dataloader, framework, correlations=True):
+#     """
+#     correlations (bool): On ne calcule pas la correlation pour le modèle à 2 couches
+#     """
+#     outputs_test = calc_outputs_test(model, test_dataloader)
+#     preds_test = (torch.tensor(outputs_test["all_outputs_test"]) > 0.5).int()
+#     accuracy_test = calc_acc(preds_test, outputs_test["all_labels_test"])
+#     print("Accuracy test: ", np.round(accuracy_test, 4))
+    
+#     print("Séparabilité:")
+#     separabilite(outputs_test)
+    
+#     auroc, _, _, fpr = auc_and_fpr_recall(np.array(outputs_test["all_outputs_test"]), np.array(outputs_test["all_labels_test"]), tpr_th=0.95)
+#     print("AUC ROC: {}\nFPR@TPR95: {}\n".format(auroc.round(4), fpr.round(4)))
+    
+#     if correlations:
+#         poids = dict(model.named_parameters())["weight"].cpu().detach().numpy().squeeze().round(4)
+#         df, correlation_id, correlation_ood = calc_correlations(framework, "react", poids)
+#         print("Correlation ID : ", correlation_id)
+#         print("Correlation OOD : ", correlation_ood)
+#         display(df) 
+#     else:
+#         df = correlation_id = correlation_ood = None
+        
+#     return outputs_test, auroc, fpr, df, correlation_id, correlation_ood

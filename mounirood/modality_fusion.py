@@ -4,13 +4,20 @@ def calc_perturbations(conf1:np.ndarray, conf2:np.ndarray, method="mse") -> np.n
     """
     args:
     conf1, conf2 (np.ndarray, list)
+    conf1 est en général le score de base et conf2 avec react
     """
     
     if method == "mse":
         return np.mean((conf1 - conf2) ** 2)
     if method == "diff":
         return np.mean(conf1-conf2)
-
+    if method == "diff_vector":
+        return conf2-conf1
+    if method == "diff_vector_abs":
+        return np.abs(conf2-conf1)
+    else:
+        raise ValueError("méthode non reconnue")
+    
 def max_perturbations(id_conf_sans, id_confs, ood_confs):
     """
     id_conf_sans: scores de confiance obtenus sans react/ash
@@ -36,7 +43,7 @@ def ponderer_perturbations(id_conf_sans, id_confs, ood_confs, fct_ponderation):
     """
     perturbations = []
     
-    for i, conf in enumerate(id_confs):
+    for conf in id_confs:
         perturbation = calc_perturbations(id_conf_sans, conf)
         perturbations.append(perturbation)
     
@@ -45,26 +52,29 @@ def ponderer_perturbations(id_conf_sans, id_confs, ood_confs, fct_ponderation):
     
     return confs_ponderees
     
-# def ponderation_predictor(confs:np.ndarray, weights:np.ndarray, tau:int=1) -> np.ndarray:
-#     """
-#     args:
-#     confs (np.ndarray): (N, M), avec M nombre de modalités (2 si VF ou 3 si VFA)
-#     weights (np.ndarray): (M,), poids de chaque modalité
-    
-#     returns:
-#     le score de confiance final et la prédiction éventuellement 
-#     """
-#     # le score de confiance final après pondération des modalités par leurs perturbations respectives (poids)
-#     ponderated_conf = np.sum(confs*tau*weights, axis=1).reshape(-1,1)
-#     return ponderated_conf
+#####################################################################
+# Pondération après avoir obtenu les perturbations
+from abc import ABC
 
-class ponderation_predictor() :
+class Ponderator(ABC):
+    """
+    Ces classes donnent des scores finaux à partir d'une liste de scores bruts et de poids.
+    Chacune va pondérer d'une manière différente
+    """
+    def __init__(self):
+        super().__init__()
+    def __call__(self, confs, weights):
+        pass
+    
+class CoefficientPonderator(Ponderator) :
     def __init__(self, tau):
         """
         tau: le multiplicateur des poids
         """
+        super().__init__()
         self.tau = tau
-    def __call__(self, confs:np.ndarray, weights:np.ndarray, tau:float=1) -> np.ndarray:   
+        
+    def __call__(self, confs:np.ndarray, weights:np.ndarray) -> np.ndarray:   
         """
         args:
         confs (np.ndarray): (N, M), avec M nombre de modalités (2 si VF ou 3 si VFA)
@@ -77,7 +87,11 @@ class ponderation_predictor() :
         ponderated_conf = np.sum(confs*self.tau*weights, axis=1).reshape(-1,1)
         return ponderated_conf
 
-def normalization_predictor(confs, weights):
-    normalized_weights = weights / np.sum(weights)
-    ponderated_conf = np.sum(confs*normalized_weights, axis=1).reshape(-1,1)
-    return ponderated_conf
+class NormalizationPonderator(Ponderator):
+    def __init__(self):
+        super().__init__()
+    
+    def __call__(self, confs, weights):    
+        normalized_weights = weights / np.sum(weights)
+        ponderated_conf = np.sum(confs*normalized_weights, axis=1).reshape(-1,1)
+        return ponderated_conf

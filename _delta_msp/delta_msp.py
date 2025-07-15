@@ -7,8 +7,8 @@ import argparse
 sys.path.append(os.path.abspath('..'))
 
 from mounirood.datasets import get_y
-from mounirood.modality_fusion import calc_perturbations, CoefficientPonderator, NormalizationPonderator
-from mounirood.framework import FrameworkFactory #FarOODFramework, NearOODFramework
+from mounirood.modality_fusion import calc_perturbations
+from mounirood.framework import FrameworkFactory 
 #from mounirood.eval_functions import  auc_and_fpr_recall
 #from metrics import auc_and_fpr_recall 
 from sklearn import metrics
@@ -21,9 +21,9 @@ np.random.seed(seed)
 def save_results():
     frmwrk = args.framework if args.framework != "near_ood" else args.framework+"_"+dataset
     columns = ["method", "framework", "layer_proc", "auroc", "fpr"] 
-    info = f"ponderation_perturbations,{frmwrk},{args.layer_proc},{auroc},{fpr}"
+    info = f"ponderation_perturbations,{frmwrk},{args.layer_proc},{auroc*100},{fpr*100}"
     
-    filename = "resultats_ponderations.csv"
+    filename = "resultats_delta_msp_sans_abs.csv"
     
     if not os.path.exists(filename): 
         with open(filename, "w") as f:
@@ -102,19 +102,16 @@ else:
 
 vecteur_sans_id = dataset_id[:, 0] 
 confs_modalites_id = dataset_id[:, 2:]
-perturbations_id = np.array([calc_perturbations(vecteur_sans_id, vecteur_avec) for vecteur_avec in confs_modalites_id.transpose()])
+perturbations_id = np.array([-calc_perturbations(vecteur_sans_id, vecteur_avec, method="diff_vector_abs") for vecteur_avec in confs_modalites_id.transpose()]).transpose()
 # shape : [N_modalités,]
 
 vecteur_sans_ood = dataset_ood[:, 0] 
 confs_modalites_ood = dataset_ood[:, 2:]
-perturbations_ood = np.array([calc_perturbations(vecteur_sans_ood, vecteur_avec) for vecteur_avec in confs_modalites_ood.transpose()])
+perturbations_ood = np.array([-calc_perturbations(vecteur_sans_ood, vecteur_avec, method="diff_vector_abs") for vecteur_avec in confs_modalites_ood.transpose()]).transpose()
 # shape : [N_modalités,]
 
-tau = -1 #coefficient multiplicateur de la pondération
-# scores_id = CoefficientPonderator(tau)(confs_modalites_id, perturbations_id)
-# scores_ood = CoefficientPonderator(tau)(confs_modalites_ood, perturbations_ood)
-scores_id = NormalizationPonderator()(confs_modalites_id, perturbations_id)
-scores_ood = NormalizationPonderator()(confs_modalites_ood, perturbations_ood)
+scores_id = np.sum(perturbations_id, axis=1).reshape(-1,1) * vecteur_sans_id.reshape(-1,1) # Pour delta msp simple garder le premier terme de la multiplication
+scores_ood = np.sum(perturbations_ood, axis=1).reshape(-1,1) * vecteur_sans_ood.reshape(-1,1)
 
 scores = np.vstack((scores_id, scores_ood))
 labels = get_y(dataset_id, dataset_ood)

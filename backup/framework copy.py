@@ -47,6 +47,9 @@ class Framework():
             conf_une_modalite.append(self.load_conf(template.format(*args,modality)))
         conf_une_modalite = np.hstack(conf_une_modalite)
         return conf_une_modalite
+    
+    def load_pred(self, template):
+        pass
 
 
 class NearOODFramework(Framework):
@@ -77,17 +80,20 @@ class NearOODFramework(Framework):
         )
         
 
-    def get_confs(self, domain, layer_proc) -> np.ndarray:
+    def get_confs(self, domain, layer_proc):
+        if layer_proc == "none":
+            return self.get_vanilla_confs(domain)
         if self.ood_mode == "vfa":
-            return self.get_confs_vfa(domain, layer_proc)
+            return self.get_confs_vfa(domain, layer_proc) # np.ndarray 
         else:
-            return self.get_confs_near_vf(domain, layer_proc)
+            return self.get_confs_near_vf(domain, layer_proc)  # dict[str] par dataset
         
-    def get_confs_near_vf(self, domain, layer_proc):
+    def get_confs_near_vf(self, domain, layer_proc) -> dict:
         """
         Retourne les scores de confiance (max MSP)
         args:
         domain: str ("id", "ood")
+        Le fait que ce soit ID ou OOD dépend du split
         """
         assert domain in ["id", "ood"]
         split = "test" if domain == "id" else "eval"
@@ -96,20 +102,21 @@ class NearOODFramework(Framework):
         template_layer_proc_tout = "id_{}_near_ood_conf_baseline_best_"+layer_proc+"_"+split+".npy"
         template_par_modalite = "id_{}_near_ood_conf_baseline_best_"+layer_proc+"_{}_"+split+".npy"
 
-        datasets_id = {}
+        datasets = {}
         
-        for dataset in [ds.label for ds in near_ood_datasets]:
+        for dataset_name in [ds.label for ds in near_ood_datasets]:
 
             # Sans layer_proc
-            conf_sans_layer_proc = self.load_conf(template_sans_layer_proc.format(dataset))
+            conf_sans_layer_proc = self.load_conf(template_sans_layer_proc.format(dataset_name))
             
             # layer_proc sur tout
-            conf_layer_proc_tout = self.load_conf(template_layer_proc_tout.format(dataset))
+            conf_layer_proc_tout = self.load_conf(template_layer_proc_tout.format(dataset_name))
             
-            conf_une_modalite = self.load_conf_moda_wise(template_par_modalite, dataset)
-            dataset_id = np.hstack([conf_sans_layer_proc, conf_layer_proc_tout, conf_une_modalite]) #(N,5)
-            datasets_id[dataset] = dataset_id
-        return datasets_id
+            conf_une_modalite = self.load_conf_moda_wise(template_par_modalite, dataset_name)
+            dataset = np.hstack([conf_sans_layer_proc, conf_layer_proc_tout, conf_une_modalite]) #(N,5)
+            datasets[dataset_name] = dataset
+        
+        return datasets
     
     def get_confs_vfa(self, domain, layer_proc):
         """
@@ -136,10 +143,29 @@ class NearOODFramework(Framework):
         
         return dataset_id
     
+    def get_vanilla_confs(self, domain):
+        assert domain in ["id", "ood"]
+        split = "test" if domain == "id" else "eval"
+        
+        if self.ood_mode == "near_ood":
+            template_sans_layer_proc =  "id_{}_near_ood_conf_baseline_best_"+split+".npy"
+            datasets = {}
+            
+            for dataset in [ds.label for ds in near_ood_datasets]:
+                conf_sans_layer_proc = self.load_conf(template_sans_layer_proc.format(dataset))
+                datasets[dataset] = conf_sans_layer_proc    
+            return datasets
+        
+        else: #vfa
+            template_sans_layer_proc =  "id_EPIC_near_ood_conf_vfa_baseline_best_"+split+".npy"
+            conf_sans_layer_proc = self.load_conf(template_sans_layer_proc)
+            
+            return conf_sans_layer_proc
 
 class FarOODFramework(Framework):
     def __init__(self, moda_wise=""):
         super().__init__("far_ood", moda_wise)
+        ood_datasets = ['UCF', 'EPIC'] #HAC
         drop_modality = "" if not moda_wise else "--drop_modality {modality}"
         drop_modality_suffix = "" if not moda_wise else "{modality}"
         
@@ -174,8 +200,11 @@ class FarOODFramework(Framework):
             "tee out_eval_{dataset}_far_ood_{sparsification_suffix}"+f"{drop_modality_suffix}.log"
         )
     
-    def get_confs(self, domain, layer_proc):
+    def get_confs(self, domain, layer_proc, dataset=""):
         assert domain in ["id", "ood"]
+        if layer_proc == "none":
+            return self.get_vanilla_confs(domain, dataset)
+    
         if domain == "id":
             return self.get_id_data(layer_proc)
         else:
@@ -237,6 +266,23 @@ class FarOODFramework(Framework):
         dataset_ood = np.hstack([conf_sans_react, conf_react_tout, conf_par_modalite]) #(N,4)
         return dataset_ood
     
+    def get_vanilla_confs(self, domain, dataset):
+        # Certifié rend les même résultats que le code du papier
+        ood_datasets = ['UCF', 'EPIC']
+        if domain == "id": 
+            template_id_sans_react =  "id_HMDB_conf_baseline_best_test.npy"
+            conf_sans_react = self.load_conf(template_id_sans_react)
+        
+        if domain == "ood":
+            template_sans_react =  "id_HMDB_ood_{}_conf_baseline_best_eval.npy"
+            conf_sans_react = []
+            if dataset:
+                ood_datasets = [dataset]
+            for dataset in ood_datasets:
+                x = self.load_conf(template_sans_react.format(dataset))
+                conf_sans_react.append(x)
+            conf_sans_react = np.vstack(conf_sans_react) #(N,1), avec N = 9603, toutes les vidéos des 3 datasets (selon les filtrages far ood)
+        return conf_sans_react
 ####################################################
 
 FRAMEWORK_MAP = {

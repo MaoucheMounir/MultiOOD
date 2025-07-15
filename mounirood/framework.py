@@ -1,5 +1,5 @@
 import numpy as np
-from .datasets import datasets, near_ood_datasets
+from .datasets import datasets, near_ood_datasets, FAR_OOD_DATASETS
 
 ###################################################
 
@@ -17,7 +17,7 @@ EVAL_FILENAME = "eval_video_flow"
 ####################################################
 
 class Framework():
-    def __init__(self, ood_mode:str, moda_wise:str=""):
+    def __init__(self, ood_mode:str, moda_wise:str="", dataset_used=""):
         """
         ood_mode: str ("far_ood", "near_ood", "vfa")
         moda_wise: str ("" ou "moda_wise")
@@ -26,6 +26,7 @@ class Framework():
         ood_tag = "far_ood" if ood_mode == "far_ood" else "near_ood"
         self.ood_mode = ood_mode
         self.moda_wise = moda_wise
+        self.dataset_used = dataset_used
         
         self.datasets = datasets[ood_mode]
         self.test_filename = "_".join(["test_video_flow", audio_tag, moda_wise]).strip("_").replace("__", "_")
@@ -36,24 +37,27 @@ class Framework():
         self.saved_files_path = "/data/maouche/MultiOOD/HMDB-rgb-flow/saved_files/"
 
         
-    def load_conf(self, template):
+    def load_file(self, template):
         conf = np.load(self.saved_files_path+template)
         return conf.reshape(conf.shape[0], 1)
         
-    def load_conf_moda_wise(self, template, *args):
+    def load_file_moda_wise(self, template, *args):
         # layer_proc par modalité
         conf_une_modalite = []
         for modality in self.modalities:
-            conf_une_modalite.append(self.load_conf(template.format(*args,modality)))
+            conf_une_modalite.append(self.load_file(template.format(*args,modality)))
         conf_une_modalite = np.hstack(conf_une_modalite)
         return conf_une_modalite
+    
 
 
 class NearOODFramework(Framework):
-    def __init__(self, ood_mode:str="near_ood", moda_wise:str=""):
-        super().__init__(ood_mode, moda_wise)
+    def __init__(self, ood_mode:str="near_ood", moda_wise:str="", dataset_used=""):
+        super().__init__(ood_mode, moda_wise, dataset_used)
         
         drop_modality = "" if not moda_wise else "--drop_modality {modality}"
+        self.splits = {"id":"test", "ood": "eval"}
+        #split = "test" if domain == "id" else "eval"
         # --datapath: le chemin du dataset à utiliser
         # --dataset: le label du dataset à utiliser
         
@@ -75,94 +79,169 @@ class NearOODFramework(Framework):
             "2>error_eval_{dataset}_"+ood_mode+"_{sparsification_suffix}{modality}.log | "
             "tee out_eval_{dataset}_"+ood_mode+"_{sparsification_suffix}{modality}.log"
         )
-        
 
-    def get_confs(self, domain, layer_proc):
+    def get_confs(self, domain, layer_proc, dataset=""):
+        assert domain in ["id", "ood"]
+        assert layer_proc in ["react", "ash", "none"]
+        
         if layer_proc == "none":
-            return self.get_vanilla_confs(domain)
+            return self.get_vanilla_confs(domain, dataset)
         if self.ood_mode == "vfa":
             return self.get_confs_vfa(domain, layer_proc) # np.ndarray 
         else:
-            return self.get_confs_near_vf(domain, layer_proc)  # dict[str] par dataset
+            return self.get_confs_near_vf(domain, layer_proc, dataset)  # dict[str] par dataset
+    
+    def get_preds(self, domain, layer_proc, dataset=""):
+        return self.get_saved_files("pred", domain, layer_proc, dataset)
         
-    def get_confs_near_vf(self, domain, layer_proc) -> dict:
+        
+    def get_confs_near_vf(self, domain, layer_proc, dataset="") -> dict:
+        return self.get_saved_files_near_vf("conf", domain, layer_proc, dataset)
+    
+    
+    def get_saved_files(self, type, domain, layer_proc, dataset="") -> dict:
         """
         Retourne les scores de confiance (max MSP)
         args:
         domain: str ("id", "ood")
         Le fait que ce soit ID ou OOD dépend du split
         """
-        assert domain in ["id", "ood"]
-        split = "test" if domain == "id" else "eval"
-                
-        template_sans_layer_proc =  "id_{}_near_ood_conf_baseline_best_"+split+".npy"
-        template_layer_proc_tout = "id_{}_near_ood_conf_baseline_best_"+layer_proc+"_"+split+".npy"
-        template_par_modalite = "id_{}_near_ood_conf_baseline_best_"+layer_proc+"_{}_"+split+".npy"
-
-        datasets = {}
+        assert domain in ["id", "ood"]     
+        assert dataset in ["", "HMDB", "UCF", "EPIC"]
+        assert not self.ood_mode=="vfa" or dataset in ["EPIC", ""], "VFA s'effectue uniquement avec EPIC"
+        if self.ood_mode == "vfa":
+            vfa_token = "_vfa"
+            dataset = "EPIC"
+        else:
+            vfa_token = ""
         
-        for dataset_name in [ds.label for ds in near_ood_datasets]:
+        template_sans_layer_proc =  "id_{}_near_ood_"+type+vfa_token+"_baseline_best_"+self.splits[domain]+".npy"
+        template_layer_proc_tout = "id_{}_near_ood_"+type+vfa_token+"_baseline_best_"+layer_proc+"_"+self.splits[domain]+".npy"
+        template_par_modalite = "id_{}_near_ood_"+type+vfa_token+"_baseline_best_"+layer_proc+"_{}_"+self.splits[domain]+".npy"
+        
+        datasets = {}        
+        dataset_names = [dataset] if dataset else [ds.label for ds in near_ood_datasets]
+        
+        for dataset_name in dataset_names:
 
             # Sans layer_proc
-            conf_sans_layer_proc = self.load_conf(template_sans_layer_proc.format(dataset_name))
+            conf_sans_layer_proc = self.load_file(template_sans_layer_proc.format(dataset_name))
             
             # layer_proc sur tout
-            conf_layer_proc_tout = self.load_conf(template_layer_proc_tout.format(dataset_name))
+            conf_layer_proc_tout = self.load_file(template_layer_proc_tout.format(dataset_name))
             
-            conf_une_modalite = self.load_conf_moda_wise(template_par_modalite, dataset_name)
-            dataset = np.hstack([conf_sans_layer_proc, conf_layer_proc_tout, conf_une_modalite]) #(N,5)
-            datasets[dataset_name] = dataset
+            conf_une_modalite = self.load_file_moda_wise(template_par_modalite, dataset_name)
+            current_dataset = np.hstack([conf_sans_layer_proc, conf_layer_proc_tout, conf_une_modalite]) #(N,5)
+            datasets[dataset_name] = current_dataset
+    
+        if dataset:
+            return datasets[dataset]
+        else:
+            return datasets
         
-        return datasets
+        
+    def get_saved_files_near_vf(self, type, domain, layer_proc, dataset="") -> dict:
+        """
+        Retourne les scores de confiance (max MSP)
+        args:
+        domain (str) : ("id", "ood")
+        dataset (str) : soit vide soit un dataset spécifié
+        Le fait que ce soit ID ou OOD dépend du split
+        """
+        assert domain in ["id", "ood"]     
+        #assert dataset in ["", "HMDB", "UCF", "EPIC"]
+        if self.ood_mode == "vfa":
+            dataset = "EPIC"
+        
+        template_sans_layer_proc =  "id_{}_near_ood_"+type+"_baseline_best_"+self.splits[domain]+".npy"
+        template_layer_proc_tout = "id_{}_near_ood_"+type+"_baseline_best_"+layer_proc+"_"+self.splits[domain]+".npy"
+        template_par_modalite = "id_{}_near_ood_"+type+"_baseline_best_"+layer_proc+"_{}_"+self.splits[domain]+".npy"
+        
+
+        datasets = {}        
+        dataset_names = [dataset] if dataset else [ds.label for ds in near_ood_datasets]
+        
+        
+        for dataset_name in dataset_names:
+
+            # Sans layer_proc
+            conf_sans_layer_proc = self.load_file(template_sans_layer_proc.format(dataset_name))
+            
+            # layer_proc sur tout
+            conf_layer_proc_tout = self.load_file(template_layer_proc_tout.format(dataset_name))
+            
+            conf_une_modalite = self.load_file_moda_wise(template_par_modalite, dataset_name)
+            current_dataset = np.hstack([conf_sans_layer_proc, conf_layer_proc_tout, conf_une_modalite]) #(N,5)
+            datasets[dataset_name] = current_dataset
+    
+        if dataset:
+            return datasets[dataset]
+        else:
+            return datasets
     
     def get_confs_vfa(self, domain, layer_proc):
+        return self.get_saved_files_vfa("conf", domain, layer_proc) 
+    
+    def get_preds_vfa(self, domain, layer_proc):
+        return self.get_saved_files_vfa("pred", domain, layer_proc) 
+    
+    def get_saved_files_vfa(self, type, domain, layer_proc):
         """
         Retourne les scores de confiance (max MSP)
         args:
         domain: str ("id", "ood")
         """
         assert domain in ["id", "ood"]
-        split = "test" if domain == "id" else "eval"
                 
-        template_sans_layer_proc =  "id_EPIC_near_ood_conf_vfa_baseline_best_"+split+".npy"
-        template_layer_proc_tout = "id_EPIC_near_ood_conf_vfa_baseline_best_"+layer_proc+"_"+split+".npy"
-        template_par_modalite = "id_EPIC_near_ood_conf_vfa_baseline_best_"+layer_proc+"_{}_"+split+".npy"
+        template_sans_layer_proc =  "id_EPIC_near_ood_"+type+"_vfa_baseline_best_"+self.splits[domain]+".npy"
+        template_layer_proc_tout = "id_EPIC_near_ood_"+type+"_vfa_baseline_best_"+layer_proc+"_"+self.splits[domain]+".npy"
+        template_par_modalite = "id_EPIC_near_ood_"+type+"_vfa_baseline_best_"+layer_proc+"_{}_"+self.splits[domain]+".npy"
 
         # Sans layer_proc
-        conf_sans_layer_proc = self.load_conf(template_sans_layer_proc)
+        conf_sans_layer_proc = self.load_file(template_sans_layer_proc)
         
         # layer_proc sur tout
-        conf_layer_proc_tout = self.load_conf(template_layer_proc_tout)
+        conf_layer_proc_tout = self.load_file(template_layer_proc_tout)
         
         # React par modalité
-        conf_une_modalite = self.load_conf_moda_wise(template_par_modalite)
+        conf_une_modalite = self.load_file_moda_wise(template_par_modalite)
         dataset_id = np.hstack([conf_sans_layer_proc, conf_layer_proc_tout, conf_une_modalite]) #(N,5)
         
         return dataset_id
     
-    def get_vanilla_confs(self, domain):
+    def get_vanilla_confs(self, domain, dataset):
         assert domain in ["id", "ood"]
-        split = "test" if domain == "id" else "eval"
         
         if self.ood_mode == "near_ood":
-            template_sans_layer_proc =  "id_{}_near_ood_conf_baseline_best_"+split+".npy"
-            datasets = {}
+            template_sans_layer_proc =  "id_{}_near_ood_conf_baseline_best_"+self.splits[domain]+".npy"
+            conf_sans_layer_proc = self.load_file(template_sans_layer_proc.format(dataset))
+        
+            return conf_sans_layer_proc
+   
+    # def get_vanilla_confs(self, domain):
+    #     assert domain in ["id", "ood"]
+        
+    #     if self.ood_mode == "near_ood":
+    #         template_sans_layer_proc =  "id_{}_near_ood_conf_baseline_best_"+self.splits[domain]+".npy"
+    #         datasets = {}
             
-            for dataset in [ds.label for ds in near_ood_datasets]:
-                conf_sans_layer_proc = self.load_conf(template_sans_layer_proc.format(dataset))
-                datasets[dataset] = conf_sans_layer_proc    
-            return datasets
+    #         for dataset in [ds.label for ds in near_ood_datasets]:
+    #             conf_sans_layer_proc = self.load_file(template_sans_layer_proc.format(dataset))
+    #             datasets[dataset] = conf_sans_layer_proc    
+    #         return datasets
         
         else: #vfa
-            template_sans_layer_proc =  "id_EPIC_near_ood_conf_vfa_baseline_best_"+split+".npy"
-            conf_sans_layer_proc = self.load_conf(template_sans_layer_proc)
+            template_sans_layer_proc =  "id_EPIC_near_ood_conf_vfa_baseline_best_"+self.splits[domain]+".npy"
+            conf_sans_layer_proc = self.load_file(template_sans_layer_proc)
             
             return conf_sans_layer_proc
 
 class FarOODFramework(Framework):
     def __init__(self, moda_wise=""):
         super().__init__("far_ood", moda_wise)
-        ood_datasets = ['UCF', 'EPIC'] #HAC
+        self.ood_datasets = ['UCF', 'EPIC'] #HAC
+        self.splits = {"id":"test", "ood": "eval"}
+        
         drop_modality = "" if not moda_wise else "--drop_modality {modality}"
         drop_modality_suffix = "" if not moda_wise else "{modality}"
         
@@ -198,85 +277,111 @@ class FarOODFramework(Framework):
         )
     
     def get_confs(self, domain, layer_proc, dataset=""):
-        assert domain in ["id", "ood"]
+        assert domain in ["id", "ood"], "domaine incorrect"
+        assert layer_proc in ["react", "ash", "none"], "Nom layer_proc incorrect"
+        assert domain == "ood" or not dataset, "En ID, on a un seul dataset: HMDB"
+        
         if layer_proc == "none":
             return self.get_vanilla_confs(domain, dataset)
     
         if domain == "id":
-            return self.get_id_data(layer_proc)
+            return self.get_saved_files("conf", "id", layer_proc)
         else:
-            return self.get_ood_data(layer_proc)
+            return self.get_saved_files("conf", "ood", layer_proc, dataset)
     
-    def get_id_data(self, layer_proc):
-        # le split était val il devient test pour être cohérent avec le papier
-        template_id_sans_react =  "id_HMDB_conf_baseline_best_test.npy"
-        template_id_react_tout = "id_HMDB_conf_baseline_best_"+layer_proc+"_test.npy"
-        template_id_par_modalite = "id_HMDB_conf_baseline_best_"+layer_proc+"_{}_test.npy"
-
-        # Sans react
-        conf_sans_react = self.load_conf(template_id_sans_react)
+    def get_preds(self, domain, layer_proc, dataset=""):
+        assert domain in ["id", "ood"], "domaine incorrect"
+        assert layer_proc in ["react", "ash", "none"], "Nom layer_proc incorrect"
+        assert domain == "ood" or not dataset, "Ne pas spécifier dataset ID, toujours HMDB"
         
-        # React sur tout
-        conf_react_tout = self.load_conf(template_id_react_tout)
-
-        # React par modalité
-        conf_une_modalite = self.load_conf_moda_wise(template_id_par_modalite)
+        # if layer_proc == "none":
+        #     return self.get_vanilla_confs(domain, dataset) meme chose pour preds ?
+    
+        if domain == "id":
+            return self.get_saved_files("pred", "id", layer_proc)
+        else:
+            return self.get_saved_files("pred", "ood", layer_proc, dataset)
+    
+    def get_saved_files(self, type, domain, layer_proc, dataset=""):
+        assert domain in ["id", "ood"]
         
-        dataset_id = np.hstack([conf_sans_react, conf_react_tout, conf_une_modalite]) #(N,4)
-        return dataset_id
+        if domain == "id":
+            # le split était val il devient test pour être cohérent avec le papier
+            template_id_sans_react =  "id_HMDB_"+type+"_baseline_best_"+self.splits["id"]+".npy"
+            template_id_react_tout = "id_HMDB_"+type+"_baseline_best_"+layer_proc+"_"+self.splits["id"]+".npy"
+            template_id_par_modalite = "id_HMDB_"+type+"_baseline_best_"+layer_proc+"_{}_"+self.splits["id"]+".npy"
 
-    def get_ood_data(self, layer_proc):
-        template_sans_react =  "id_HMDB_ood_{}_conf_baseline_best_eval.npy"
-        template_react_tout = "id_HMDB_ood_{}_conf_baseline_best_"+layer_proc+"_eval.npy"
-        template_par_modalite = "id_HMDB_ood_{}_conf_baseline_best_"+layer_proc+"_{}_eval.npy"
-        
-        ood_datasets = ['UCF', 'EPIC']#, 'HAC']
-        root_dir = self.saved_files_path
-        
-        # Sans react
-        conf_sans_react = []
-        for dataset in ood_datasets:
-            x = self.load_conf(template_sans_react.format(dataset))
-            conf_sans_react.append(x)
-        conf_sans_react = np.vstack(conf_sans_react) #(N,1), avec N = 9603, toutes les vidéos des 3 datasets (selon les filtrages far ood)
-
-        # React sur tout 
-        conf_react_tout = []
-        for dataset in ood_datasets:
-            x = self.load_conf(template_react_tout.format(dataset))
-            conf_react_tout.append(x)
-        conf_react_tout = np.vstack(conf_react_tout) #(N,1)
+            # Sans react
+            conf_sans_react = self.load_file(template_id_sans_react)
             
-        # React par modalité
-        conf_par_modalite = []
-        for modality in MODALITIES["far_ood"]:
-            conf_une_modalite = []
-            for dataset in ood_datasets:
-                x = np.load(root_dir+template_par_modalite.format(dataset, modality))
-                x = x.reshape(x.shape[0], 1)
-                conf_une_modalite.append(x)
-            conf_une_modalite = np.vstack(conf_une_modalite)
-            conf_par_modalite.append(conf_une_modalite)
+            # React sur tout
+            conf_react_tout = self.load_file(template_id_react_tout)
 
-        conf_par_modalite = np.reshape(conf_par_modalite, (-1, len(MODALITIES["far_ood"])))  #(N,1)
+            # React par modalité
+            conf_une_modalite = self.load_file_moda_wise(template_id_par_modalite)
+            
+            dataset_id = np.hstack([conf_sans_react, conf_react_tout, conf_une_modalite]) #(N,4)
+            return dataset_id
 
-        dataset_ood = np.hstack([conf_sans_react, conf_react_tout, conf_par_modalite]) #(N,4)
-        return dataset_ood
+#    def get_ood_saved_files(self, type, layer_proc, dataset=""):
+        else:
+            template_sans_react =  "id_HMDB_ood_{}_"+type+"_baseline_best_"+self.splits["ood"]+".npy"
+            template_react_tout = "id_HMDB_ood_{}_"+type+"_baseline_best_"+layer_proc+"_"+self.splits["ood"]+".npy"
+            template_par_modalite = "id_HMDB_ood_{}_"+type+"_baseline_best_"+layer_proc+"_{}_"+self.splits["ood"]+".npy"
+            
+            assert dataset in [ds.label for ds in FAR_OOD_DATASETS] or not dataset, "Nom du dataset incorrect"
+            root_dir = self.saved_files_path
+            dataset_names = [dataset] if dataset else [ds.label for ds in FAR_OOD_DATASETS]
+            if layer_proc == "ash" and 'HAC' in dataset_names:
+                dataset_names.remove('HAC')
+            assert dataset_names != []
+            
+            # Sans react
+            conf_sans_react = []
+            for dataset_name in dataset_names: #self.ood_datasets:
+                x = self.load_file(template_sans_react.format(dataset_name))
+                conf_sans_react.append(x)
+            conf_sans_react = np.vstack(conf_sans_react) #(N,1), avec N = 9603, toutes les vidéos des 3 datasets (selon les filtrages far ood)
+
+            # React sur tout 
+            conf_react_tout = []
+            for dataset_name in dataset_names: #self.ood_datasets:
+                x = self.load_file(template_react_tout.format(dataset_name))
+                conf_react_tout.append(x)
+            conf_react_tout = np.vstack(conf_react_tout) #(N,1)
+                
+            # React par modalité
+            conf_par_modalite = []
+            
+            for modality in MODALITIES["far_ood"]:
+                conf_une_modalite = []
+                for dataset_name in dataset_names: #self.ood_datasets:
+                    x = np.load(root_dir+template_par_modalite.format(dataset_name, modality))
+                    x = x.reshape(x.shape[0], 1)
+                    conf_une_modalite.append(x)
+                conf_une_modalite = np.vstack(conf_une_modalite)
+                conf_par_modalite.append(conf_une_modalite)
+
+            conf_par_modalite = np.reshape(conf_par_modalite, (-1, len(MODALITIES["far_ood"])))  #(N,1)
+            
+            dataset_ood = np.hstack([conf_sans_react, conf_react_tout, conf_par_modalite]) #(N,4)
+            
+            return dataset_ood #if not dataset else dataset_ood[dataset]
     
     def get_vanilla_confs(self, domain, dataset):
         # Certifié rend les même résultats que le code du papier
-        ood_datasets = ['UCF', 'EPIC']
+        #ood_datasets = ['UCF', 'EPIC']
         if domain == "id": 
-            template_id_sans_react =  "id_HMDB_conf_baseline_best_test.npy"
-            conf_sans_react = self.load_conf(template_id_sans_react)
+            template_id_sans_react = "id_HMDB_conf_baseline_best_"+self.splits[domain]+".npy" # "id_HMDB_conf_baseline_best_test.npy"
+            conf_sans_react = self.load_file(template_id_sans_react)
         
         if domain == "ood":
-            template_sans_react =  "id_HMDB_ood_{}_conf_baseline_best_eval.npy"
+            template_sans_react =  "id_HMDB_ood_{}_conf_baseline_best_"+self.splits[domain]+".npy"
             conf_sans_react = []
             if dataset:
-                ood_datasets = [dataset]
-            for dataset in ood_datasets:
-                x = self.load_conf(template_sans_react.format(dataset))
+                self.ood_datasets = [dataset]
+            for dataset in self.ood_datasets:
+                x = self.load_file(template_sans_react.format(dataset))
                 conf_sans_react.append(x)
             conf_sans_react = np.vstack(conf_sans_react) #(N,1), avec N = 9603, toutes les vidéos des 3 datasets (selon les filtrages far ood)
         return conf_sans_react
@@ -288,8 +393,8 @@ FRAMEWORK_MAP = {
     "far_ood": FarOODFramework
 }
 
-def FrameworkFactory(ood_mode: str, moda_wise: str = "") -> Framework:
+def FrameworkFactory(ood_mode: str, moda_wise: str = "", dataset_used="") -> Framework:
     if ood_mode not in FRAMEWORK_MAP:
         raise ValueError(f"ood_mode inconnu : {ood_mode}")
     
-    return FRAMEWORK_MAP[ood_mode](ood_mode=ood_mode, moda_wise=moda_wise) if ood_mode != "far_ood" else FRAMEWORK_MAP[ood_mode](moda_wise=moda_wise)
+    return FRAMEWORK_MAP[ood_mode](ood_mode=ood_mode, moda_wise=moda_wise, dataset_used=dataset_used) if ood_mode != "far_ood" else FRAMEWORK_MAP[ood_mode](moda_wise=moda_wise)

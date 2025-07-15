@@ -36,8 +36,10 @@ def validate_one_step(model, clip, labels, flow, model_flow):
         v_feat = (x_slow.detach(), x_fast.detach())  # slow 16,1280,16,14,14, fast 16,128,64,14,14
 
         v_feat = model.module.backbone.get_predict(v_feat) 
-        v_predict, v_emd = model.module.cls_head(v_feat) # apparemment, c'est celui-là qui contient les vecteurs d'embeddings finaux
-
+        v_predict, v_emd = model.module.cls_head(v_feat) # apparemment, c'est celui-là qui contient les vecteurs d'embeddings finaux. 
+        #C'est la concaténation des embeddings finaux de la partie slow et fast, qui sera ensuite envoyé au cls (Linear) qui donnera v_predict de taille [N,n_classes].
+        # 
+        
         f_feat = model_flow.module.backbone.get_feature(flow)  # 16,1024,8,14,14
         f_feat = model_flow.module.backbone.get_predict(f_feat) # get_feature() donne des features bas niveau à la 3e couche du resnet, la 4e couche est appliquée par get_predict
         f_predict, f_emd = model_flow.module.cls_head(f_feat)

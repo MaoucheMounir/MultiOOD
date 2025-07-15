@@ -7,7 +7,7 @@ import argparse
 sys.path.append(os.path.abspath('..'))
 
 from mounirood.utils_mounir import calc_perturbations, ponderation_predictor, get_y
-from mounirood.config_mounir import FarOODFramework, NearOODFramework
+from mounirood.framework import FrameworkFactory
 from mounirood.eval_functions import  auc_and_fpr_recall
 
 seed = 42  
@@ -47,7 +47,7 @@ results = {}
 for framework_name in frameworks:
     if framework_name != "far_ood":
         for dataset in datasets:
-            framework = NearOODFramework(framework_name)
+            framework = FrameworkFactory(framework_name)
             if framework_name == "near_ood":
                 dataset_id, dataset_ood = framework.get_confs("id", 'ash')[dataset], framework.get_confs("ood","ash")[dataset]
             else:
@@ -58,7 +58,7 @@ for framework_name in frameworks:
             results[framework_name+"_"+dataset] = (vecteur_sans_id, vecteur_sans_ood)
                 
     else:
-        framework = FarOODFramework()
+        framework = FrameworkFactory("far_ood")
         dataset_id, dataset_ood = framework.get_confs("id", "ash"), framework.get_confs("ood","ash")
         
         vecteur_sans_id = dataset_id[:, 0] 

@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch.utils.data import TensorDataset, DataLoader
 
 """
 datasets labels: UCF,    HMDB  , EPIC,          HAC (names inside filenames)
@@ -43,7 +44,7 @@ def get_backbone_path(dataset, ood_mode, backbone_type):
 
 #######################################################
 
-far_ood_datasets = [Dataset("UCF101", "UCF", "far_ood"), #Dataset("HMDB51", "HMDB", "far_ood")
+FAR_OOD_DATASETS = [Dataset("UCF101", "UCF", "far_ood"), #Dataset("HMDB51", "HMDB", "far_ood")
                     Dataset("EPIC-KITCHENS", "EPIC", "far_ood"), Dataset("HAC", "HAC", "far_ood")]
 
 near_ood_datasets = [Dataset("HMDB51", "HMDB", "near_ood"), Dataset("UCF101", "UCF", "near_ood"),
@@ -51,11 +52,15 @@ near_ood_datasets = [Dataset("HMDB51", "HMDB", "near_ood"), Dataset("UCF101", "U
 
 vfa_dataset = Dataset("EPIC-KITCHENS", "EPIC", "near_ood", "vfa") 
 
-datasets = {'far_ood': far_ood_datasets, 'near_ood':near_ood_datasets, "vfa": vfa_dataset}
+datasets = {'far_ood': FAR_OOD_DATASETS, 'near_ood':near_ood_datasets, "vfa": vfa_dataset}
 
 #######################################################
 
 def get_y(dataset_id, dataset_ood):
+    """
+    ID = 0
+    OOD = 1
+    """
     y_id = np.zeros(dataset_id.shape[0])
     y_id = y_id.reshape(y_id.shape[0], 1)
 

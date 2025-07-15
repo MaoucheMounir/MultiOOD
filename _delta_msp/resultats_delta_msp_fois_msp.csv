@@ -1,0 +1,11 @@
+method,framework,layer_proc,auroc,fpr
+ponderation_perturbations,far_ood,react,0.9784798267962249,0.10604332953249715
+ponderation_perturbations,far_ood,ash,0.9080166489086616,0.21892816419612315
+ponderation_perturbations,near_ood_HMDB,react,0.800544196786027,0.5228758169934641
+ponderation_perturbations,near_ood_UCF,react,0.9286303577088786,0.34368932038834954
+ponderation_perturbations,near_ood_EPIC,react,0.4713916214382632,1.0
+ponderation_perturbations,near_ood_HMDB,ash,0.8416647463828837,0.4466230936819172
+ponderation_perturbations,near_ood_UCF,ash,0.9531739032178538,0.23106796116504855
+ponderation_perturbations,near_ood_EPIC,ash,0.6659543193125284,0.7705223880597015
+ponderation_perturbations,vfa,react,0.4761971393034826,0.9085820895522388
+ponderation_perturbations,vfa,ash,0.6542316824966079,0.7406716417910447
