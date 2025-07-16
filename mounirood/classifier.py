@@ -11,7 +11,7 @@ class Classifier():
         self.input_dim, self.output_dim = dims[0], dims[-1]
         if len(dims) == 3:
             self.hidden_dim = dims[1]
-            
+        # AJOUTER un argument et attribut pour le chemin du dataset à charger     
         self.framework = framework # Définit si on est en near, far ou vfa, et quel dataset utiliser
         self.data = ""    
     
