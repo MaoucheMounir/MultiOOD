@@ -67,7 +67,7 @@ class Ponderator(ABC):
         pass
     
 class CoefficientPonderator(Ponderator) :
-    def __init__(self, tau):
+    def __init__(self, tau=1):
         """
         tau: le multiplicateur des poids
         """

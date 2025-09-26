@@ -9,9 +9,8 @@ sys.path.append(os.path.abspath('..'))
 from mounirood.datasets import get_y
 from mounirood.modality_fusion import calc_perturbations, CoefficientPonderator, NormalizationPonderator
 from mounirood.framework import FrameworkFactory #FarOODFramework, NearOODFramework
-#from mounirood.eval_functions import  auc_and_fpr_recall
+from mounirood.eval_functions import  auc_and_fpr_recall
 #from metrics import auc_and_fpr_recall 
-from sklearn import metrics
 
 seed = 42  
 np.random.seed(seed)
@@ -49,32 +48,6 @@ def performance_report():
     plt.close()
 
 
-def auc_and_fpr_recall(conf, label, tpr_th):
-    # following convention in ML we treat OOD as positive
-    #ood_indicator = np.zeros_like(label)
-    #ood_indicator[label == -1] = 1
-    ood_indicator = label
-    
-    
-    # in the postprocessor we assume ID samples will have larger
-    # "conf" values than OOD samples
-    # therefore here we need to negate the "conf" values
-    
-    fpr_list, tpr_list, thresholds = metrics.roc_curve(ood_indicator, -conf)
-    fpr = fpr_list[np.argmax(tpr_list >= tpr_th)]
-
-    precision_in, recall_in, thresholds_in \
-        = metrics.precision_recall_curve(1 - ood_indicator, conf)
-
-    precision_out, recall_out, thresholds_out \
-        = metrics.precision_recall_curve(ood_indicator, -conf)
-
-    auroc = metrics.auc(fpr_list, tpr_list)
-    aupr_in = metrics.auc(recall_in, precision_in)
-    aupr_out = metrics.auc(recall_out, precision_out)
-
-    return auroc, aupr_in, aupr_out, fpr
-
 #########################
 
 parser = argparse.ArgumentParser()
@@ -101,20 +74,20 @@ else:
     dataset_id, dataset_ood = framework.get_confs("id", args.layer_proc), framework.get_confs("ood",args.layer_proc)
 
 vecteur_sans_id = dataset_id[:, 0] 
-confs_modalites_id = dataset_id[:, 2:]
+confs_modalites_id = dataset_id[:, 1:]
 perturbations_id = np.array([calc_perturbations(vecteur_sans_id, vecteur_avec) for vecteur_avec in confs_modalites_id.transpose()])
 # shape : [N_modalités,]
 
 vecteur_sans_ood = dataset_ood[:, 0] 
-confs_modalites_ood = dataset_ood[:, 2:]
+confs_modalites_ood = dataset_ood[:, 1:]
 perturbations_ood = np.array([calc_perturbations(vecteur_sans_ood, vecteur_avec) for vecteur_avec in confs_modalites_ood.transpose()])
 # shape : [N_modalités,]
 
 tau = -1 #coefficient multiplicateur de la pondération
-# scores_id = CoefficientPonderator(tau)(confs_modalites_id, perturbations_id)
-# scores_ood = CoefficientPonderator(tau)(confs_modalites_ood, perturbations_ood)
-scores_id = NormalizationPonderator()(confs_modalites_id, perturbations_id)
-scores_ood = NormalizationPonderator()(confs_modalites_ood, perturbations_ood)
+scores_id = CoefficientPonderator(tau)(confs_modalites_id, perturbations_id)
+scores_ood = CoefficientPonderator(tau)(confs_modalites_ood, perturbations_ood)
+#scores_id = NormalizationPonderator()(confs_modalites_id, perturbations_id)
+#scores_ood = NormalizationPonderator()(confs_modalites_ood, perturbations_ood)
 
 scores = np.vstack((scores_id, scores_ood))
 labels = get_y(dataset_id, dataset_ood)

@@ -4,7 +4,7 @@ framework_names = ["far_ood", "near_ood", "vfa" ]
 layer_procs = ["react", "ash"]
 datasets = ["HMDB", "UCF", "EPIC"]
 
-command_template = "python -m _lambda_perturbations.lambda_perturbations --framework {framework_name} --layer_proc {layer_proc} --save_results"
+command_template = "python -m _lambda_perturbations.lambda_perturbations_maj --framework {framework_name} --layer_proc {layer_proc} --save_results"
 
 for framework_name in framework_names:
     for layer_proc in layer_procs:

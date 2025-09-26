@@ -24,8 +24,9 @@ En termes de classes, ID = 0, OOD = 1. C'est pour ça que dans la fonction auc_a
 
 class ScoreCriterion(ABC):
     def __init__(self):
-        self.perturbation_method = None
-        pass
+        self.perturbation_method = PerturbationCalculator("mse")
+        self.perturbations_id = self.perturbations_ood = None
+        
 
     def __call__(self, dataset_id, dataset_ood=None):
         pass
@@ -33,6 +34,8 @@ class ScoreCriterion(ABC):
     def get_perturbations(self, dataset_id, dataset_ood=None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Partie commune à tous les critères
+        args:
+            dataset_id (np.ndarray): Tableau de forme (N, M+1) (scores sans, et les M scores avec)
         Returns:
             scores_id (np.ndarray): Tableau numpy de forme (N,)
             scores_ood (np.ndarray): Tableau numpy de forme (N,)
@@ -46,7 +49,7 @@ class ScoreCriterion(ABC):
         perturbations_id = np.array([self.perturbation_method(vecteur_sans_id, vecteur_avec) for vecteur_avec in confs_modalites_id.transpose()]).transpose()
         # shape : [N_modalités,]
 
-        if dataset_ood:
+        if dataset_ood is not None:
             vecteur_sans_ood = dataset_ood[:, 0] 
             confs_modalites_ood = dataset_ood[:, 1:]
             perturbations_ood = np.array([self.perturbation_method(vecteur_sans_ood, vecteur_avec) for vecteur_avec in confs_modalites_ood.transpose()]).transpose()
@@ -75,12 +78,16 @@ class DeltaMSP(ScoreCriterion):
         self.use_abs = use_absolute_value 
         
         self.perturbation_method = PerturbationCalculator("diff_vector_abs" if self.use_abs else "diff_vector")
-        pass
     
     def __call__(self, dataset_id, dataset_ood=None):
+        """
+        args:
+            dataset_id (np.ndarray): Tableau de forme (N, M+1) (scores sans, et les M scores avec)
+        """
         #return super().__call__(dataset_id, dataset_ood)
-        perturbations_id, perturbations_ood = super().get_perturbations(dataset_id, dataset_ood)
-        return self.compute_scores(perturbations_id, perturbations_ood)
+        self.perturbations_id, self.perturbations_ood = super().get_perturbations(dataset_id, dataset_ood)
+        #print(self.perturbations_id, self.perturbations_ood)
+        return self.compute_scores(self.perturbations_id, self.perturbations_ood)
     
     
     def compute_scores(self, perturbations_id, perturbations_ood=None):
@@ -90,10 +97,9 @@ class DeltaMSP(ScoreCriterion):
         # On met au négatif car on veut que les ID aient un score supérieur aux OOD
         """
         
-        
-        scores_id = -np.sum(perturbations_id, axis=1).reshape(-1,1)
-        if perturbations_ood:
-            scores_ood = -np.sum(perturbations_ood, axis=1).reshape(-1,1)
+        scores_id = np.sum(perturbations_id, axis=1).reshape(-1,1)
+        if perturbations_ood is not None:
+            scores_ood = np.sum(perturbations_ood, axis=1).reshape(-1,1)
         else:
             scores_ood = None
         return scores_id, scores_ood
@@ -104,12 +110,13 @@ class CoefficientDeltaMSP(ScoreCriterion):
         """
         Utilise la perturbation (delta msp) comme coefficient foisles scores react et ash
         """
-        self.tau = 1
+        self.tau = tau
         self.perturbation_method = PerturbationCalculator("mse")
         
         
     
     def __call__(self, dataset_id, dataset_ood=None):
+        # Le dataset qu'on lui donne est de forme (N,M+1), avec M+1: (vecteur sans, vecteur avec modalité 1 ...)
         #return super().__call__(dataset_id, dataset_ood)
         self.perturbations_id, self.perturbations_ood = super().get_perturbations(dataset_id, dataset_ood)
         return self.compute_scores(dataset_id, dataset_ood)
@@ -124,11 +131,9 @@ class CoefficientDeltaMSP(ScoreCriterion):
         
         dataset_id = dataset_id[:, 1:]
         scores_id = np.sum(dataset_id*self.tau*self.perturbations_id, axis=1).reshape(-1,1)
-        if dataset_ood:
+        if dataset_ood is not None:
             dataset_ood = dataset_ood[:, 1:]
             scores_ood = np.sum(dataset_ood*self.tau*self.perturbations_ood, axis=1).reshape(-1,1)
         else:
             scores_ood = None
         return scores_id, scores_ood
-    
-    

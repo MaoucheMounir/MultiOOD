@@ -10,10 +10,13 @@ from mounirood.datasets import get_y
 from mounirood.modality_fusion import calc_perturbations
 from mounirood.framework import FrameworkFactory 
 from mounirood.eval_functions import  auc_and_fpr_recall
+from mounirood.ScoreCriterion import DeltaMSP
 #from metrics import auc_and_fpr_recall 
 
 seed = 42  
 np.random.seed(seed)
+
+# Résultats identiques à celui sans _maj
 
 ##########################
 
@@ -72,18 +75,8 @@ if near_ood:
 else:
     dataset_id, dataset_ood = framework.get_confs("id", args.layer_proc), framework.get_confs("ood",args.layer_proc)
 
-vecteur_sans_id = dataset_id[:, 0] 
-confs_modalites_id = dataset_id[:, 2:]
-perturbations_id = np.array([-calc_perturbations(vecteur_sans_id, vecteur_avec, method="diff_vector_abs") for vecteur_avec in confs_modalites_id.transpose()]).transpose()
-# shape : [N_modalités,]
-
-vecteur_sans_ood = dataset_ood[:, 0] 
-confs_modalites_ood = dataset_ood[:, 2:]
-perturbations_ood = np.array([-calc_perturbations(vecteur_sans_ood, vecteur_avec, method="diff_vector_abs") for vecteur_avec in confs_modalites_ood.transpose()]).transpose()
-# shape : [N_modalités,]
-
-scores_id = np.sum(perturbations_id, axis=1).reshape(-1,1) * vecteur_sans_id.reshape(-1,1) # Pour delta msp simple garder le premier terme de la multiplication
-scores_ood = np.sum(perturbations_ood, axis=1).reshape(-1,1) * vecteur_sans_ood.reshape(-1,1)
+delta_msp = DeltaMSP()
+scores_id, scores_ood = delta_msp(dataset_id, dataset_ood)
 
 scores = np.vstack((scores_id, scores_ood))
 labels = get_y(dataset_id, dataset_ood)

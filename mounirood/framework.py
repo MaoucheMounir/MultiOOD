@@ -81,8 +81,8 @@ class NearOODFramework(Framework):
         )
 
     def get_confs(self, domain, layer_proc, dataset=""):
-        assert domain in ["id", "ood"]
-        assert layer_proc in ["react", "ash", "none"]
+        assert domain in ["id", "ood"], "domaine doit être 'id' ou 'ood'"
+        assert layer_proc in ["react", "ash", "none"], f"layer_proc '{layer_proc}' non supportée"
         
         if layer_proc == "none":
             return self.get_vanilla_confs(domain, dataset)
